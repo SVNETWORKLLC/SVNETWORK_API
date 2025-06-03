@@ -294,17 +294,26 @@ class UserController extends Controller
     }
 
     /**
-     * Almacena el token FCM del usuario autenticado
+     * Almacena un token FCM para el usuario autenticado (soporta múltiples tokens)
      */
     public function saveFcmToken(Request $request)
     {
         $request->validate([
             'fcm_token' => 'required|string',
+            'device' => 'nullable|string',
+            'platform' => 'nullable|string',
         ]);
 
         $user = auth()->user();
-        $user->fcm_token = $request->fcm_token;
-        $user->save();
+        $token = $request->fcm_token;
+        $device = $request->device;
+        $platform = $request->platform;
+
+        // Evita duplicados
+        $user->pushNotifications()->updateOrCreate(
+            ['token' => $token],
+            ['device' => $device, 'platform' => $platform]
+        );
 
         return response()->json(['message' => 'Token FCM guardado correctamente']);
     }

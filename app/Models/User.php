@@ -93,6 +93,11 @@ class User extends Authenticatable
         return $this->hasMany(Transactions::class);
     }
 
+    public function pushNotifications()
+    {
+        return $this->hasMany(\App\Models\PushNotification::class);
+    }
+
     public function getAvatarTextAttribute(){
         $text = substr($this->name, 0, 1).substr($this->surname, 0, 1);
         return strtoupper($text);

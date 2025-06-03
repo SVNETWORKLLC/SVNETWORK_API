@@ -11,7 +11,6 @@ use App\Models\Zipcode;
 use App\Notifications\RequestAQuoteNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use App\Http\Controllers\PushNotificationController;
 
 class QuoteController extends Controller
 {
@@ -147,7 +146,4 @@ class QuoteController extends Controller
         }
         return response()->json(['message' => 'Images uploaded successfully', 'images' => $quote->images]);
     }
-
-    // Ejemplo de uso:
-    // PushNotificationController::sendPushNotification($fcmToken, 'Título', 'Mensaje', ['key' => 'valor']);
 }

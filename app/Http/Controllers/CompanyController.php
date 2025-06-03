@@ -25,6 +25,7 @@ use App\Notifications\CompanyVerifiedNotification;
 use App\Notifications\LicenceVerificationNotification;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
 
 class CompanyController extends Controller
@@ -524,8 +525,10 @@ class CompanyController extends Controller
         if ($request->hasFile('image')) {
             $image = $request->file('image');
 
-            $nombreArchivo = $company->id . '/logo-' . uniqid() . '.' . $image->extension();;
+            $nombreArchivo = $company->id . '/logo-' . uniqid() . '.' . $image->extension();
+            $rutaAbsoluta = storage_path('app/public/companies/' . $nombreArchivo);
             Storage::disk('companies')->put($nombreArchivo, file_get_contents($image));
+            \Artisan::call('image:convert', ['image' => $rutaAbsoluta]);
             $urlArchivo = Storage::disk('companies')->url($nombreArchivo);
             $company->logo_url = $urlArchivo;
         }
@@ -641,9 +644,10 @@ class CompanyController extends Controller
 
         if ($request->hasFile('image')) {
             $image = $request->file('image');
-
-            $nombreArchivo = $company->id . '/logo-' . uniqid() . '.' . $image->extension();;
+            $nombreArchivo = $company->id . '/logo-' . uniqid() . '.' . $image->extension();
+            $rutaAbsoluta = storage_path('app/public/companies/' . $nombreArchivo);
             Storage::disk('companies')->put($nombreArchivo, file_get_contents($image));
+            \Artisan::call('image:convert', ['image' => $rutaAbsoluta]);
             $urlArchivo = Storage::disk('companies')->url($nombreArchivo);
             $company->logo_url = $urlArchivo;
         }
@@ -686,12 +690,9 @@ class CompanyController extends Controller
                 if ($image->isValid()) {
                     // Realizar acciones con cada imagen, como guardarla en el servidor
                     $nombreArchivo = $company->id . '/projects/image-' . uniqid($key) . '.' . $image->extension();
-                    $fullPath = Storage::disk('companies')->path($nombreArchivo);
-
-                    //Procesado de imagen
-                    ConvertImageJob::dispatch($fullPath);
-
+                    $rutaAbsoluta = storage_path('app/public/companies/' . $nombreArchivo);
                     Storage::disk('companies')->put($nombreArchivo, file_get_contents($image));
+                    \Artisan::call('image:convert', ['image' => $rutaAbsoluta]);
                     $extension = $image->extension();
                     $size = $image->getSize();
                     $mimetype = $image->getMimeType();
@@ -712,10 +713,8 @@ class CompanyController extends Controller
                         'height' => $alto,
                         'size' => $size
                     ]);
-                } else {
                 }
             }
-
             return "Image uploaded.";
         } else {
             return "No se encontraron imágenes para subir.";

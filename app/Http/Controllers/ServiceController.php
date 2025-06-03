@@ -20,6 +20,7 @@ use App\Models\CompanyServiceZip;
 use App\Models\Project;
 use App\Models\State;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Artisan;
 
 class ServiceController extends Controller
 {
@@ -796,9 +797,10 @@ class ServiceController extends Controller
 
         if ($request->hasFile('image')) {
             $image = $request->file('image');
-
-            $nombreArchivo = $service->id . '/image-' . uniqid() . '.' . $image->extension();;
+            $nombreArchivo = $service->id . '/image-' . uniqid() . '.' . $image->extension();
+            $rutaAbsoluta = storage_path('app/public/services/' . $nombreArchivo);
             Storage::disk('services')->put($nombreArchivo, file_get_contents($image));
+            Artisan::call('image:convert', ['image' => $rutaAbsoluta]);
             $urlArchivo = Storage::disk('services')->url($nombreArchivo);
             $service->image = $urlArchivo;
         }
