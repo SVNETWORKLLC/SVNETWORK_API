@@ -11,6 +11,7 @@ use App\Models\Zipcode;
 use App\Notifications\RequestAQuoteNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use App\Http\Controllers\PushNotificationController;
 
 class QuoteController extends Controller
 {
@@ -52,7 +53,7 @@ class QuoteController extends Controller
             'state_iso' => $zipcode->state_iso,
             'company_id' => $request->company_id
         ]);
-        $quote->link = config('app.app_url') . '/user/companies/profile/quotes/' . $quote->id. '?utm_source=email';
+        $quote->link = config('app.app_url') . '/user/companies/profile/quotes/' . $quote->id . '?utm_source=email';
         $data = [
             'user' => $user,
             'quote' => new QuoteResource($quote)
@@ -109,29 +110,32 @@ class QuoteController extends Controller
     {
         $request->validate([
             'quote_id' => 'required',
-            'image' => 'required'
+            'images' => 'required'
         ]);
 
-        $project = Quote::find($request->quote_id);
-        $image = $request->file('image');
-        //Save image
-        if (!$image || !$image->isValid()) {
-            return response()->json(['error' => 'Invalid image upload'], 422);
-        }
+        $quote = Quote::find($request->quote_id);
+        $images = $request->file('images');
 
-        if (!in_array($image->extension(), ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-            return response()->json(['error' => 'Unsupported file type'], 422);
-        }
+        foreach ($images as $key => $image) {
+
+            //Save image
+            if (!$image || !$image->isValid()) {
+                return response()->json(['error' => 'Invalid image upload'], 422);
+            }
+
+            if (!in_array($image->extension(), ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                return response()->json(['error' => 'Unsupported file type'], 422);
+            }
 
 
 
-            $filename = $project->uuid . '/image-' . uniqid() . '.' . $image->extension();
+            $filename = $quote->uuid . '/image-' . uniqid() . '.' . $image->extension();
             Storage::disk('quotes')->put($filename, file_get_contents($image));
             $extension = $image->extension();
             $size = $image->getSize();
             $mimetype = $image->getMimeType();
 
-            $image = $project->images()->create([
+            $image = $quote->images()->create([
                 'filename' => $filename,
                 'mime_type' => $mimetype,
                 'extension' => $extension,
@@ -139,7 +143,11 @@ class QuoteController extends Controller
                 'size' => $size
             ]);
 
-            return $image;
 
+        }
+        return response()->json(['message' => 'Images uploaded successfully', 'images' => $quote->images]);
     }
+
+    // Ejemplo de uso:
+    // PushNotificationController::sendPushNotification($fcmToken, 'Título', 'Mensaje', ['key' => 'valor']);
 }

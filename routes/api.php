@@ -15,6 +15,7 @@ use App\Http\Controllers\RenewPasswordController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentMethodController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\PushNotificationController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\QuestionTypeController;
 use App\Http\Controllers\QuoteController;
@@ -71,6 +72,7 @@ Route::get('/user/quotes/{quote}', [UserController::class, 'showQuote']);
 Route::get('/user/projects', [UserController::class, 'projects']);
 Route::post('/user/image', [UserController::class, 'storeImageAuthUser'])->middleware('auth:sanctum');
 Route::put('/user', [UserController::class, 'update'])->middleware('auth:sanctum');
+Route::post('/user/fcm-token', [UserController::class, 'saveFcmToken'])->middleware('auth:sanctum');
 //SYSTEM DATA
 
 Route::get('/system/geoip/{ip?}', [GeoipController::class, 'show']);
@@ -252,3 +254,4 @@ Route::post('/verification-code', [VerificationCodeController::class, 'verifyCod
 
 Route::get('/mautic', [MauticController::class, 'token']);
 Route::get('/mautic/callback', [MauticController::class, 'callback']);
+Route::post('/push/send', [PushNotificationController::class, 'sendPushNotificationEndpoint'])->middleware('auth:sanctum');

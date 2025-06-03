@@ -292,4 +292,20 @@ class UserController extends Controller
 
         return $data;
     }
+
+    /**
+     * Almacena el token FCM del usuario autenticado
+     */
+    public function saveFcmToken(Request $request)
+    {
+        $request->validate([
+            'fcm_token' => 'required|string',
+        ]);
+
+        $user = auth()->user();
+        $user->fcm_token = $request->fcm_token;
+        $user->save();
+
+        return response()->json(['message' => 'Token FCM guardado correctamente']);
+    }
 }

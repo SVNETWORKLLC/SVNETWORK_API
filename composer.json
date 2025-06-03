@@ -10,6 +10,7 @@
         "geoip2/geoip2": "~2.0",
         "guzzlehttp/guzzle": "^7.8",
         "intervention/image": "^3.6",
+        "kreait/firebase-php": "^7.18",
         "laravel/framework": "^10.10",
         "laravel/sanctum": "^3.2",
         "laravel/socialite": "^5.16",
