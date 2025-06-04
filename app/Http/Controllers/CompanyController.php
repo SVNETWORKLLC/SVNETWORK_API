@@ -528,9 +528,10 @@ class CompanyController extends Controller
             $nombreArchivo = $company->id . '/logo-' . uniqid() . '.' . $image->extension();
             $rutaAbsoluta = storage_path('app/public/companies/' . $nombreArchivo);
             Storage::disk('companies')->put($nombreArchivo, file_get_contents($image));
-            \Artisan::call('image:convert', ['image' => $rutaAbsoluta,  'extension' => $image->extension()]);
-            $urlArchivo = Storage::disk('companies')->url($nombreArchivo);
-            $company->logo_url = $urlArchivo;
+            \Artisan::call('image:convert', ['image' => $rutaAbsoluta]);
+            $nombreArchivo2 = $company->id . '/logo-' . uniqid() . '.webp';
+            $urlArchivo2 = Storage::disk('companies')->url($nombreArchivo2);
+            $company->logo_url = $urlArchivo2;
         }
 
         $company->save();
