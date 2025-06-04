@@ -524,13 +524,17 @@ class CompanyController extends Controller
 
         if ($request->hasFile('image')) {
             $image = $request->file('image');
-
-            $nombreArchivo = $company->id . '/logo-' . uniqid() . '.' . $image->extension();
+            $uuid = uniqid();
+            $nombreArchivo = $company->id . '/logo-' . $uuid . '.' . $image->extension();
             $rutaAbsoluta = storage_path('app/public/companies/' . $nombreArchivo);
             Storage::disk('companies')->put($nombreArchivo, file_get_contents($image));
             \Artisan::call('image:convert', ['image' => $rutaAbsoluta]);
             $urlArchivo = Storage::disk('companies')->url($nombreArchivo);
-            $company->logo_url = $urlArchivo;
+            $nombreArchivo2 = $company->id . '/logo-' . $uuid . '2.' . $image->extension();
+
+            $urlArchivo2 = Storage::disk('companies')->url($nombreArchivo2);
+            $company->logo_url = $urlArchivo2;
+                $company->save();
         }
 
         $company->save();
@@ -1089,22 +1093,22 @@ class CompanyController extends Controller
         }
 
         foreach ($companyZipcodes as $zipcode) {
-        $exists = $service->zipcodes()
-            ->wherePivot('zipcode_id', $zipcode['id'])
-            ->wherePivot('company_id', $company_id)
-            ->exists();
+            $exists = $service->zipcodes()
+                ->wherePivot('zipcode_id', $zipcode['id'])
+                ->wherePivot('company_id', $company_id)
+                ->exists();
 
-        if (!$exists) {
-            CompanyServiceZip::create([
-                'zipcode_id' => $zipcode['id'],
-                'company_id' => $company_id,
-                'service_id' => $newServiceId,
-                'region_text' => $zipcode['region'],
-                'active' => true,
-                'state_iso' => $zipcode['state_iso']
-            ]);
+            if (!$exists) {
+                CompanyServiceZip::create([
+                    'zipcode_id' => $zipcode['id'],
+                    'company_id' => $company_id,
+                    'service_id' => $newServiceId,
+                    'region_text' => $zipcode['region'],
+                    'active' => true,
+                    'state_iso' => $zipcode['state_iso']
+                ]);
+            }
         }
-    }
         // $companyStatesIds->map(function ($stateId) use ($company_id, $newServiceId, $companyZipcodes) {
 
         //     $service = Service::find($newServiceId);

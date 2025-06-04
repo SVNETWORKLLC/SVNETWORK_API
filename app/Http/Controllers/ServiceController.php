@@ -32,10 +32,10 @@ class ServiceController extends Controller
     public function newAddedServices()
     {
         $services = CompanyServiceState::select('state_id', 'service_id')
-        ->groupBy('state_id', 'service_id')
-        ->orderBy('updated_at', 'desc')
-        ->take(20)
-        ->get();
+            ->groupBy('state_id', 'service_id')
+            ->orderBy('updated_at', 'desc')
+            ->take(20)
+            ->get();
 
         return ServiceNewAddedResource::collection($services);
     }
@@ -216,9 +216,9 @@ class ServiceController extends Controller
             $service = Service::find($newServiceId);
 
             $exists = $service?->states()
-            ->wherePivot('state_id', $stateId)
-            ->wherePivot('company_id', $company_id)
-            ->exists();
+                ->wherePivot('state_id', $stateId)
+                ->wherePivot('company_id', $company_id)
+                ->exists();
 
             if (!$exists) {
 
@@ -268,7 +268,6 @@ class ServiceController extends Controller
             ->where('company_id', $request->company_id)
             ->delete();
         return new UserCompanyResource($company);
-
     }
 
     public function update(Service $service, Request $request)
@@ -545,7 +544,7 @@ class ServiceController extends Controller
         foreach ($zipcodes as $key => $zip) {
             # code...
             $exists = CompanyServiceZip::where('company_id', $company->id)->where('service_id', $service->id)->where('region_text', $request->region)->where('zipcode_id', $zip->id)->exists();
-            if(!$exists){
+            if (!$exists) {
                 CompanyServiceZip::create([
                     'company_id' => $company->id,
                     'region_text' => $zip->region,
@@ -574,7 +573,7 @@ class ServiceController extends Controller
         foreach ($zipcodes as $key => $zip) {
             # code...
             $exists = CompanyServiceZip::where('company_id', $company->id)->where('service_id', $service->id)->where('region_text', $request->region)->where('zipcode_id', $zip->id)->exists();
-            if(!$exists){
+            if (!$exists) {
                 CompanyServiceZip::create([
                     'company_id' => $company->id,
                     'region_text' => $zip->region,
@@ -638,13 +637,12 @@ class ServiceController extends Controller
 
             return array_map(function ($zip) use ($service, $request) {
                 $service->companyServiceZip()->where('region_text', $request->region)
-                ->where('company_id', $request->company_id)
-                ->where('company_id', $request->company_id)
-                ->where('zipcode_id', $zip['id'])
-                ->delete();
+                    ->where('company_id', $request->company_id)
+                    ->where('company_id', $request->company_id)
+                    ->where('zipcode_id', $zip['id'])
+                    ->delete();
                 return $zip['zipcode'];
             }, $request->zipcodes);
-
         }
         return 'eliminados';
     }
@@ -663,13 +661,12 @@ class ServiceController extends Controller
 
             return array_map(function ($zip) use ($service, $request) {
                 $service->companyServiceZip()->where('region_text', $request->region)
-                ->where('company_id', $request->company_id)
-                ->where('company_id', $request->company_id)
-                ->where('zipcode_id', $zip['id'])
-                ->delete();
+                    ->where('company_id', $request->company_id)
+                    ->where('company_id', $request->company_id)
+                    ->where('zipcode_id', $zip['id'])
+                    ->delete();
                 return $zip['zipcode'];
             }, $request->zipcodes);
-
         }
         return 'eliminados';
     }
@@ -796,7 +793,8 @@ class ServiceController extends Controller
 
         if ($request->hasFile('image')) {
             $image = $request->file('image');
-            $nombreArchivo = $service->id . '/image-' . uniqid() . '.' . $image->extension();
+            $uuid = uniqid();
+            $nombreArchivo = $service->id . '/image-' . $uuid . '.' . $image->extension();
             $rutaAbsoluta = storage_path('app/public/services/' . $nombreArchivo);
             // Guardar la imagen original en el disco
             Storage::disk('services')->put($nombreArchivo, file_get_contents($image));
@@ -804,7 +802,11 @@ class ServiceController extends Controller
             Artisan::call('image:convert', ['image' => $rutaAbsoluta]);
             // Obtener la URL optimizada
             $urlArchivo = Storage::disk('services')->url($nombreArchivo);
-            $service->image = $urlArchivo;
+            $nombreArchivo2 = $service->id . '/image-' . $uuid . '2.' . $image->extension();
+
+            $urlArchivo2 = Storage::disk('services')->url($nombreArchivo2);
+            $service->image = $urlArchivo2;
+            $service->save();
         }
 
         $service->save();
