@@ -19,17 +19,16 @@ class ConvertImage extends Command
     public function handle()
     {
         $image = $this->argument('image');
-        $output = 'temp_image.webp';
+        $output = $image . '.webp';
 
-        // Comando ffmpeg para convertir a WebP, calidad baja, resize a 1280px de ancho máximo
+        // Comando ffmpeg para convertir y optimizar la imagen según la instrucción del usuario
         $comando = [
             'ffmpeg',
             '-i', $image,
-            '-vf', 'scale=1280:-1', // Redimensiona a 1280px de ancho, mantiene proporción
-            '-quality', '50',       // Calidad baja (0-100, 100 es mejor calidad)
-            '-compression_level', '6', // Compresión alta
-            '-preset', 'picture',   // Preset para imágenes
-            '-y',                   // Sobrescribe si existe
+            '-vf', "scale='min(320,iw)':'min(240,ih)':force_original_aspect_ratio=decrease",
+            '-q:v', '5',
+            '-frames:v', '1',
+            '-y', // Sobrescribe si existe
             $output
         ];
 
@@ -37,8 +36,7 @@ class ConvertImage extends Command
 
         try {
             $process->mustRun();
-            rename($output, $image . '.webp');
-            $this->info("Imagen convertida y optimizada: {$image}.webp");
+            $this->info("Imagen convertida y optimizada: {$output}");
         } catch (ProcessFailedException $exception) {
             $this->error("Error al convertir la imagen: {$exception->getMessage()}");
         }
