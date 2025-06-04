@@ -793,14 +793,16 @@ class ServiceController extends Controller
         $request->validate([
             'image' => 'required'
         ]);
-        // 'required|mimes:doc,docx,odt,pdf|max:2048'
 
         if ($request->hasFile('image')) {
             $image = $request->file('image');
             $nombreArchivo = $service->id . '/image-' . uniqid() . '.' . $image->extension();
             $rutaAbsoluta = storage_path('app/public/services/' . $nombreArchivo);
+            // Guardar la imagen original en el disco
             Storage::disk('services')->put($nombreArchivo, file_get_contents($image));
+            // Optimizar la imagen usando el comando Artisan image:convert
             Artisan::call('image:convert', ['image' => $rutaAbsoluta]);
+            // Obtener la URL optimizada
             $urlArchivo = Storage::disk('services')->url($nombreArchivo);
             $service->image = $urlArchivo;
         }
