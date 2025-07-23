@@ -6,6 +6,7 @@ use App\Models\VerificationCode;
 use App\Services\TwilioService;
 use Illuminate\Http\Request;
 use App\Models\User;
+
 class VerificationCodeController extends Controller
 {
     public function __construct(TwilioService $twilioService)
@@ -26,13 +27,13 @@ class VerificationCodeController extends Controller
 
         VerificationCode::create([
             'code' => $verificationCode,
-            'phone_number' => $phoneNumber
+            'phone_number' => $phoneNumber,
+            'user_id' => $request->user()->id
         ]);
         // Envía el SMS con Twilio
         $this->twilioService->sendVerificationCode($phoneNumber, $verificationCode);
 
         return response()->json(['message' => 'Verification code sent successfully!'], 201);
-
     }
 
     public function verifyCode(Request $request)
@@ -42,21 +43,21 @@ class VerificationCodeController extends Controller
             'code' => 'required',
         ]);
 
-        $user = User::find($request->user_id);
-       $verificationCode = VerificationCode::where('phone_number', $request->phone_number)->where('code', $request->code)->first();
+        $user = auth()->user();
+        $verificationCode = VerificationCode::where('phone_number', $request->phone_number)
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->first();
 
-
-        if($verificationCode){
+        if ($verificationCode && $verificationCode->code == $request->code) {
             $verificationCode->is_verified = true;
             $verificationCode->save();
             $user->verified_phone = true;
             $user->save();
             return response()->json(['message' => 'Verification successfully!']);
-        }else{
+        } else {
             VerificationCode::where('phone_number', $request->phone_number)->delete();
             abort(422, 'Wrong code');
         }
     }
-
-
 }

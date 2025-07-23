@@ -41,8 +41,9 @@ use Illuminate\Support\Facades\Route;
 | be assigned to the "api" middleware group. Make something great!
 |
 */
+//agrega middleware web primero
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+Route::middleware(['web', 'auth:sanctum'])->get('/user', function (Request $request) {
     return $request->user();
 });
 
@@ -52,12 +53,12 @@ Route::get('/auth/user', [UserController::class, 'show'])->middleware('auth:sanc
 Route::get('/auth/user/check-email/{email}', [UserController::class, 'emailExist']);
 Route::post('/check/robot', [UserController::class, 'checkRobot']);
 Route::post('/auth/register/company', [RegisterController::class, 'registerCompany']);
-Route::post('/auth/register', [RegisterController::class, 'register']);
+Route::post('/auth/register', [RegisterController::class, 'register'])->middleware('web');
 Route::post('/auth/google/token', [RegisterController::class, 'googleToken']);
 Route::post('/auth/register-guess', [UserController::class, 'storeGuess']);
 Route::post('/auth/register/google', [RegisterController::class, 'registerGoogle']);
 Route::post('/auth/register/google/reviews', [RegisterController::class, 'registerGoogleReviews']);
-Route::post('/auth/login', [LoginController::class, 'login']);
+Route::post('/auth/login', [LoginController::class, 'login'])->middleware('web');
 Route::post('/auth/logout', [LoginController::class, 'logout'])->middleware('auth:sanctum');
 Route::post('/auth/register/verification', [VerificationController::class, 'verifyEmail'])->middleware('signed');
 Route::post('/auth/email/verify/resend/{email}', [VerificationController::class, 'resend']);
@@ -249,7 +250,7 @@ Route::group(['middleware' => 'auth:sanctum', 'isAdmin'], function () {
 
 
 
-Route::post('/send-verification-code', [VerificationCodeController::class, 'sendSmsVerification']);
+Route::post('/send-verification-code', [VerificationCodeController::class, 'sendSmsVerification'])->middleware('auth:sanctum');
 Route::post('/verification-code', [VerificationCodeController::class, 'verifyCode'])->middleware('auth:sanctum');
 
 Route::get('/mautic', [MauticController::class, 'token']);

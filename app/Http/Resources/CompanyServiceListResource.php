@@ -22,6 +22,7 @@ class CompanyServiceListResource extends JsonResource
             "pause" => $this->pause,
             "price" => $this->price,
             "category_id" => $this->category_id,
+
             "states" => StateResource::collection($this->states),
             "pause" => $this->pivot->pause == 1 ? true :false,
             "active" => $this->pivot->pause == 0 ? true : false

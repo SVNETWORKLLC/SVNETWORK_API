@@ -540,10 +540,12 @@ class ServiceController extends Controller
         if (!$user->companies->where('id', $company->id)->count()) {
             abort(403);
         }
+
         $zipcodes = Zipcode::where('region', $request->region)->where('state_iso', $request->state_iso)->get();
         foreach ($zipcodes as $key => $zip) {
             # code...
             $exists = CompanyServiceZip::where('company_id', $company->id)->where('service_id', $service->id)->where('region_text', $request->region)->where('zipcode_id', $zip->id)->exists();
+
             if (!$exists) {
                 CompanyServiceZip::create([
                     'company_id' => $company->id,
@@ -738,6 +740,7 @@ class ServiceController extends Controller
             abort(403);
         }
         $zipcodes = Zipcode::where('state_iso', $state->iso_code)->get();
+        dd($state->iso_code);
         $service->companyServiceZip()->where('company_id', $request->company_id)->where('state_iso', $state->iso_code)->delete();
 
         return response()->json([
@@ -753,6 +756,7 @@ class ServiceController extends Controller
         ]);
 
         $service = Service::find($request->service_id);
+
         $state = State::find($request->state_id);
         Zipcode::where('state_iso', $state->iso_code)->get();
         $service->companyServiceZip()->where('company_id', $request->company_id)->where('state_iso', $state->iso_code)->delete();

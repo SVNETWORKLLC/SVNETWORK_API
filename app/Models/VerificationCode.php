@@ -10,6 +10,8 @@ class VerificationCode extends Model
     use HasFactory;
     protected $fillable = [
         'code',
-        'phone_number'
+        'phone_number',
+        'user_id',
+        'is_verified',
     ];
 }

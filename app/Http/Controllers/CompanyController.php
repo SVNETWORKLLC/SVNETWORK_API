@@ -77,6 +77,11 @@ class CompanyController extends Controller
 
     public function show(Company $company)
     {
+        $services = $company->services->map(function ($service) use ($company) {
+            $service->states = $service->states()->where('company_id', $company->id)->get();
+            return new CompanyServiceResource($service);
+        });
+        $company->services = $services;
         return new DashboardCompanyResource($company);
     }
     public function projects(Company $company)
@@ -1246,9 +1251,13 @@ class CompanyController extends Controller
     }
     public function newAddedCompanies()
     {
-        //Companies que tienen servicios, que tienen logo y que son verificados
-        $companies = Company::where('verified', 1)->whereHas('services')->whereNotNull('logo_url')->orderBy('id', 'desc')->take(20)->get();
-        // $companies = Company::where('verified', 1)->orderBy('id', 'desc')->take(10)->get();
+        // Selecciona 20 compañías aleatorias que cumplen con los requisitos
+        $companies = Company::where('verified', 1)
+            ->whereHas('services')
+            ->whereNotNull('logo_url')
+            ->inRandomOrder()
+            ->take(20)
+            ->get();
 
         return CompanyBasicResource::collection($companies);
     }

@@ -91,8 +91,8 @@ class RegisterController extends Controller
         $user->link = $link;
 
         $user->notify(new UserCreatedNotification($user));
-
-        return response()->json(["message" => "Succesful user registration"], 201);
+ Auth::login($user);
+     return new UserResource($user);
     }
     function registerCompany(Request $request)
     {
@@ -131,6 +131,7 @@ class RegisterController extends Controller
 
         UserContractorRegistered::dispatch($user);
         $user->notify(new UserCreatedNotification($user));
+         Auth::login($user);
         return new UserResource($user);
     }
     function registerGoogle(Request $request)
