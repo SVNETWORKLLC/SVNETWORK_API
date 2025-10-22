@@ -90,7 +90,7 @@ class SearchController extends Controller
             ->whereNotIn('company_id', $companiesMatchIds)
             ->whereNotIn('company_id', $companiesServicePause)
             ->whereNotIn('company_id', $companiesDefaults)
-            ->whereIn('company_id', $companiesWithoutPaymentMethod)
+            // ->whereIn('company_id', $companiesWithoutPaymentMethod)
             ->take(3);
 
         //No matches actions
@@ -132,128 +132,114 @@ class SearchController extends Controller
             $payment_message = null;
             $status = false;
             $payment_code = null;
-            //Inserto Matches
-            // Matches::create([
-            //     'email' => $user->email,
-            //     'user_id' => $user->id,
-            //     'company_id' => $match->company->id,
-            //     'project_id' => $project_id,
-            //     'service_id' => $service_id
-            // ]);
+
             //Envio cobro a compania en caso de que sea verificada y creada por usuario
             $company = Company::find($match->company->id);
             $company->projects()->attach($project_id);
             $payment = null;
-            if ($match->company->users) {
+            // if ($match->company->users) {
 
-                $payment_method_id = null;
-                if ($match->company->users[0]->stripe_client_id) {
+            //     $payment_method_id = null;
+            //     if ($match->company->users[0]->stripe_client_id) {
+
+            //         $stripe = new \Stripe\StripeClient(config('app.stripe_pk'));
+            //         $payment_methods = $stripe->paymentMethods->all([
+            //             'type' => 'card',
+            //             'limit' => 3,
+            //             'customer' => $match->company->users[0]->stripe_client_id,
+            //         ]);
 
 
-                    $stripe = new \Stripe\StripeClient(config('app.stripe_pk'));
-                    $payment_methods = $stripe->paymentMethods->all([
-                        'type' => 'card',
-                        'limit' => 3,
-                        'customer' => $match->company->users[0]->stripe_client_id,
-                    ]);
+            //         if ($payment_methods->data) {
+            //             $payment_method_id = $payment_methods->data[0]->id;
+
+            //             try {
+            //                 if ($service->price > 0) {
+
+            //                     $payment = $stripe->paymentIntents->create([
+            //                         'amount' => $service->price  * 100,
+            //                         'currency' => 'usd',
+            //                         'customer' => $match->company->users[0]->stripe_client_id,
+            //                         'payment_method' => $payment_method_id,
+            //                         'confirm' => true,
+            //                         'description' => 'Match ' . $service->name,
+            //                         'confirmation_method' => 'automatic', // Utiliza 'automatic' para pagos automáticos
+            //                         'metadata' => [
+            //                             'customer_name' => $match->company->users[0]->name . ' ' . $match->company->users[0]->surname,
+            //                             // Agrega más metadatos según sea necesario
+            //                         ],
+            //                         'return_url' => config('app.app_url') . '/user/companies/profile'
+            //                     ]);
+            //                 }
+
+            //                 $status = true;
+            //                 Transactions::create([
+            //                     'user_id' => $match->company->users[0]->id,
+            //                     'project_id' => $project_id,
+            //                     'service_id' => $service->id,
+            //                     'stripe_payment_method' => $payment_method_id,
+            //                     'price' => $service->price,
+            //                     'company_id' => $match->company->id,
+            //                     'paid' => $status,
+            //                     'message' => null,
+            //                     'match_id' => $match->id,
+            //                     'stripe_payment_intent' => $payment->id,
+            //                     'payment_code' => $payment_code,
+            //                 ]);
+            //             } catch (\Stripe\Exception\ApiErrorException $e) {
+            //                 Log::error('Error matches: ' . $e->getMessage(), [
+            //                     'exception' => $e,
+            //                     'trace' => $e->getTraceAsString(),
+            //                 ]);
+            //                 $status = false;
+            //                 $payment_message = $e->getError()->message;
+            //                 $payment_code = $e->getError()->decline_code;
+
+            //                 // Maneja el error de Stripe aquí
+            //                 // Puedes registrar el error, mostrar un mensaje al usuario, etc.
+            //                 // Pero el código continuará ejecutándose después de este bloque catch
+            //                 if ($payment_method_id) {
+
+            //                     Transactions::create([
+            //                         'user_id' => $match->company->users[0]->id,
+            //                         'project_id' => $project_id,
+            //                         'service_id' => $service->id,
+            //                         'company_id' => $match->company->id,
+            //                         'stripe_payment_method' => $payment_method_id,
+            //                         'price' => $service->price,
+            //                         'paid' => $status,
+            //                         'match_id' => $match->id,
+            //                         'message' => $payment_message,
+            //                         'payment_code' => $payment_code,
+            //                     ]);
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
 
 
-                    if ($payment_methods->data) {
-                        $payment_method_id = $payment_methods->data[0]->id;
+            $match = Matches::create([
+                'email' => $user->email,
+                'user_id' => $user->id,
+                'company_id' => $match->company->id,
+                'project_id' => $project_id,
+                'service_id' => $service_id
+            ]);
 
-                        try {
-                            if ($service->price > 0) {
-
-                                $payment = $stripe->paymentIntents->create([
-                                    'amount' => $service->price  * 100,
-                                    'currency' => 'usd',
-                                    'customer' => $match->company->users[0]->stripe_client_id,
-                                    'payment_method' => $payment_method_id,
-                                    'confirm' => true,
-                                    'description' => 'Match ' . $service->name,
-                                    'confirmation_method' => 'automatic', // Utiliza 'automatic' para pagos automáticos
-                                    'metadata' => [
-                                        'customer_name' => $match->company->users[0]->name . ' ' . $match->company->users[0]->surname,
-                                        // Agrega más metadatos según sea necesario
-                                    ],
-                                    'return_url' => config('app.app_url') . '/user/companies/profile'
-                                ]);
-                            }
-
-                            $status = true;
-                            $match = Matches::create([
-                                'email' => $user->email,
-                                'user_id' => $user->id,
-                                'company_id' => $match->company->id,
-                                'project_id' => $project_id,
-                                'service_id' => $service_id
-                            ]);
-                            Transactions::create([
-                                'user_id' => $match->company->users[0]->id,
-                                'project_id' => $project_id,
-                                'service_id' => $service->id,
-                                'stripe_payment_method' => $payment_method_id,
-                                'price' => $service->price,
-                                'company_id' => $match->company->id,
-                                'paid' => $status,
-                                'message' => null,
-                                'match_id' => $match->id,
-                                'stripe_payment_intent' => $payment->id,
-                                'payment_code' => $payment_code,
-                            ]);
-                        } catch (\Stripe\Exception\ApiErrorException $e) {
-                            Log::error('Error matches: ' . $e->getMessage(), [
-                                'exception' => $e,
-                                'trace' => $e->getTraceAsString(),
-                            ]);
-                            $status = false;
-                            $payment_message = $e->getError()->message;
-                            $payment_code = $e->getError()->decline_code;
-
-                            // Maneja el error de Stripe aquí
-                            // Puedes registrar el error, mostrar un mensaje al usuario, etc.
-                            // Pero el código continuará ejecutándose después de este bloque catch
-                            if ($payment_method_id) {
-                                $match = Matches::create([
-                                    'email' => $user->email,
-                                    'user_id' => $user->id,
-                                    'company_id' => $match->company->id,
-                                    'project_id' => $project_id,
-                                    'service_id' => $service_id
-                                ]);
-                                Transactions::create([
-                                    'user_id' => $match->company->users[0]->id,
-                                    'project_id' => $project_id,
-                                    'service_id' => $service->id,
-                                    'company_id' => $match->company->id,
-                                    'stripe_payment_method' => $payment_method_id,
-                                    'price' => $service->price,
-                                    'paid' => $status,
-                                    'match_id' => $match->id,
-                                    'message' => $payment_message,
-                                    'payment_code' => $payment_code,
-                                ]);
-                            }
-                        }
-
-                        $user->link = config('app.app_url') . '/user/companies/profile/projects/' . $project_id;
-                        $user->service = $service;
-                        try {
-                            $match->company->users[0]->notify(new MatchesCompanyNotification($user));
-                        } catch (\Exception $e) {
-                            // Capturar el error y almacenarlo en el archivo de log
-                            Log::error('Error occurred: ' . $e->getMessage(), [
-                                'exception' => $e,
-                                'trace' => $e->getTraceAsString(),
-                            ]);
-                        }
-
-                        return $match->company;
-                    } else {
-                        return null;
-                    }
-                }
+            try {
+                $user->link = config('app.app_url') . '/user/companies/profile/leads/' . $project_id . '/'. $match->id;
+                $user->service = $service;
+                $match->company->users[0]->notify(new MatchesCompanyNotification($user));
+            } catch (\Exception $e) {
+                // Capturar el error y almacenarlo en el archivo de log
+                Log::error('Error occurred: ' . $e->getMessage(), [
+                    'exception' => $e,
+                    'trace' => $e->getTraceAsString(),
+                ]);
             }
+
+            return $match->company;
         }); //matches map
 
         $matches = $matches->filter(function ($value) {
@@ -318,7 +304,7 @@ class SearchController extends Controller
         })->whereNotNull()->toArray();
 
         $companies = $service->companyServiceZip
-        ->where('zipcode_id', $zipcode->id);
+            ->where('zipcode_id', $zipcode->id);
         // ->whereNotIn('company_id', $companiesNotVerified)
         // ->whereNotIn('company_id', $companiesServicePause)
         // ->whereIn('company_id', $companiesWithoutPaymentMethod);
