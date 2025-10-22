@@ -89,7 +89,7 @@ class SearchController extends Controller
             ->whereNotIn('company_id', $companiesNotVerified)
             ->whereNotIn('company_id', $companiesMatchIds)
             ->whereNotIn('company_id', $companiesServicePause)
-            ->whereNotIn('company_id', $companiesDefaults)
+            // ->whereNotIn('company_id', $companiesDefaults)
             // ->whereIn('company_id', $companiesWithoutPaymentMethod)
             ->take(3);
 
