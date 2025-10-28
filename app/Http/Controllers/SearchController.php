@@ -321,13 +321,13 @@ class SearchController extends Controller
 
     function noMatchesList()
     {
-        $noMatches = NoMatches::where('done', 0)->orderBy('id', 'desc')->get();
+        $noMatches = NoMatches::where('done', 0)->orderBy('created_at', 'desc')->get();
 
         return NoMatchesResource::collection($noMatches);
     }
     function matchesList()
     {
-        $matches = Matches::all();
+        $matches = Matches::orderBy('created_at', 'desc')->get();
 
         return MatchesResource::collection($matches);
     }

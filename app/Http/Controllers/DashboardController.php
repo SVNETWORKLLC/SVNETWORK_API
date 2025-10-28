@@ -18,34 +18,81 @@ class DashboardController extends Controller
 {
     public function registeredUsers()
     {
-        $dates = User::selectRaw("DATE_FORMAT(created_at, '%b %d %Y') as date")
+        // Obtener el rango de fechas (últimos 30 días o desde el primer usuario)
+        $startDate = User::where('is_admin', 0)->min('created_at')
+            ? Carbon::parse(User::where('is_admin', 0)->min('created_at'))->startOfDay()
+            : Carbon::now()->subDays(30)->startOfDay();
+        $endDate = Carbon::now()->endOfDay();
+
+        // Generar todas las fechas en el rango
+        $allDates = collect();
+        $currentDate = $startDate->copy();
+
+        while ($currentDate->lte($endDate)) {
+            $allDates->push($currentDate->copy());
+            $currentDate->addDay();
+        }
+
+        // Obtener usuarios agrupados por fecha (excluyendo admins)
+        $usersByDate = User::selectRaw('DATE(created_at) as date, COUNT(*) as total')
+            ->where('is_admin', 0)
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->groupBy('date')
-            ->orderBy('date', 'asc')
-            ->pluck('date');
-        $totals = User::selectRaw('DATE(created_at) as date, COUNT(*) as total')
-            ->groupBy('date')
-            ->orderBy('date', 'asc')
-            ->pluck('total');
+            ->pluck('total', 'date');
+
+        // Construir arrays finales con 0 para fechas sin registros
+        $categories = [];
+        $series = [];
+
+        foreach ($allDates as $date) {
+            $dateStr = $date->format('Y-m-d');
+            $categories[] = $date->format('M d Y');
+            $series[] = $usersByDate->get($dateStr, 0);
+        }
+
         $data = [
-            'categories' => $dates,
-            'series' => $totals
+            'categories' => $categories,
+            'series' => $series
         ];
         return $data;
     }
 
     public function registeredCompanies()
     {
-        $dates = Company::selectRaw("DATE_FORMAT(created_at, '%b %d %Y') as date")
+        // Obtener el rango de fechas (últimos 30 días o desde la primera empresa)
+        $startDate = Company::min('created_at')
+            ? Carbon::parse(Company::min('created_at'))->startOfDay()
+            : Carbon::now()->subDays(30)->startOfDay();
+        $endDate = Carbon::now()->endOfDay();
+
+        // Generar todas las fechas en el rango
+        $allDates = collect();
+        $currentDate = $startDate->copy();
+
+        while ($currentDate->lte($endDate)) {
+            $allDates->push($currentDate->copy());
+            $currentDate->addDay();
+        }
+
+        // Obtener empresas agrupadas por fecha
+        $companiesByDate = Company::selectRaw('DATE(created_at) as date, COUNT(*) as total')
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->groupBy('date')
-            ->orderBy('date', 'asc')
-            ->pluck('date');
-        $totals = Company::selectRaw('DATE(created_at) as date, COUNT(*) as total')
-            ->groupBy('date')
-            ->orderBy('date', 'asc')
-            ->pluck('total');
+            ->pluck('total', 'date');
+
+        // Construir arrays finales con 0 para fechas sin registros
+        $categories = [];
+        $series = [];
+
+        foreach ($allDates as $date) {
+            $dateStr = $date->format('Y-m-d');
+            $categories[] = $date->format('M d Y');
+            $series[] = $companiesByDate->get($dateStr, 0);
+        }
+
         $data = [
-            'categories' => $dates,
-            'series' => $totals
+            'categories' => $categories,
+            'series' => $series
         ];
         return $data;
     }
@@ -82,33 +129,79 @@ class DashboardController extends Controller
 
     public function totalMatches()
     {
-        $dates = Matches::selectRaw("DATE_FORMAT(created_at, '%b %d %Y') as date")
+        // Obtener el rango de fechas (últimos 30 días o desde el primer match)
+        $startDate = Matches::min('created_at')
+            ? Carbon::parse(Matches::min('created_at'))->startOfDay()
+            : Carbon::now()->subDays(30)->startOfDay();
+        $endDate = Carbon::now()->endOfDay();
+
+        // Generar todas las fechas en el rango
+        $allDates = collect();
+        $currentDate = $startDate->copy();
+
+        while ($currentDate->lte($endDate)) {
+            $allDates->push($currentDate->copy());
+            $currentDate->addDay();
+        }
+
+        // Obtener matches agrupados por fecha
+        $matchesByDate = Matches::selectRaw('DATE(created_at) as date, COUNT(*) as total')
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->groupBy('date')
-            ->orderBy('date', 'asc')
-            ->pluck('date');
-        $totals = Matches::selectRaw('DATE(created_at) as date, COUNT(*) as total')
-            ->groupBy('date')
-            ->orderBy('date', 'asc')
-            ->pluck('total');
+            ->pluck('total', 'date');
+
+        // Construir arrays finales con 0 para fechas sin matches
+        $categories = [];
+        $series = [];
+
+        foreach ($allDates as $date) {
+            $dateStr = $date->format('Y-m-d');
+            $categories[] = $date->format('M d Y');
+            $series[] = $matchesByDate->get($dateStr, 0);
+        }
+
         $data = [
-            'categories' => $dates,
-            'series' => $totals
+            'categories' => $categories,
+            'series' => $series
         ];
         return $data;
     }
     public function totalNomatches()
     {
-        $dates = NoMatches::selectRaw("DATE_FORMAT(created_at, '%b %d %Y') as date")
+        // Obtener el rango de fechas (últimos 30 días o desde el primer nomatch)
+        $startDate = NoMatches::min('created_at')
+            ? Carbon::parse(NoMatches::min('created_at'))->startOfDay()
+            : Carbon::now()->subDays(30)->startOfDay();
+        $endDate = Carbon::now()->endOfDay();
+
+        // Generar todas las fechas en el rango
+        $allDates = collect();
+        $currentDate = $startDate->copy();
+
+        while ($currentDate->lte($endDate)) {
+            $allDates->push($currentDate->copy());
+            $currentDate->addDay();
+        }
+
+        // Obtener nomatches agrupados por fecha
+        $nomatchesByDate = NoMatches::selectRaw('DATE(created_at) as date, COUNT(*) as total')
+            ->whereBetween('created_at', [$startDate, $endDate])
             ->groupBy('date')
-            ->orderBy('date', 'asc')
-            ->pluck('date');
-        $totals = NoMatches::selectRaw('DATE(created_at) as date, COUNT(*) as total')
-            ->groupBy('date')
-            ->orderBy('date', 'asc')
-            ->pluck('total');
+            ->pluck('total', 'date');
+
+        // Construir arrays finales con 0 para fechas sin nomatches
+        $categories = [];
+        $series = [];
+
+        foreach ($allDates as $date) {
+            $dateStr = $date->format('Y-m-d');
+            $categories[] = $date->format('M d Y');
+            $series[] = $nomatchesByDate->get($dateStr, 0);
+        }
+
         $data = [
-            'categories' => $dates,
-            'series' => $totals
+            'categories' => $categories,
+            'series' => $series
         ];
         return $data;
     }
