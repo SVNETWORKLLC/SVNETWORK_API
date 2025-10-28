@@ -16,22 +16,32 @@ use Carbon\Carbon;
 
 class PaymentController extends Controller
 {
-    public function getMethodCard()
+public function getMethodCard()
     {
         $stripe = new \Stripe\StripeClient(config('app.stripe_pk'));
         $user = auth()->user();
-        try{
-            if ($user->stripe_client_id) {
-                $methods = $stripe->paymentMethods->all([
-                    'customer' => $user->stripe_client_id,
-                    'type' => 'card',
-                ]);
-                return $methods;
-            } else {
-                return null;
-            }
-        }catch(Exception $e){
-            return abort(422, 'No payment method found for this user');
+        if ($user->stripe_client_id) {
+            $customer = $stripe->customers->retrieve($user->stripe_client_id);
+            $defaultPaymentMethodId = $customer->invoice_settings?->default_payment_method;
+
+
+            $methods = $stripe->paymentMethods->all([
+                'customer' => $user->stripe_client_id,
+                'type' => 'card',
+            ]);
+            $methods2 = [];
+            $methods2 = array_map(function($method)use($defaultPaymentMethodId){
+                if($defaultPaymentMethodId == $method->id){
+                    $method->default = true;
+                }else{
+                    $method->default = false;
+                }
+                return $method;
+            }, $methods['data']);
+            $methods['data'] = $methods2;
+            return $methods;
+        } else {
+            return null;
         }
     }
     public function adminGetPaymentsMethodsCompany(Company $company)

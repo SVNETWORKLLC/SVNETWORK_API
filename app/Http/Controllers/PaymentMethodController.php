@@ -10,7 +10,7 @@ class PaymentMethodController extends Controller
     public function storeCard(Request $request)
     {
         $request->validate([
-            'card'=> 'required'
+            'card' => 'required'
         ]);
 
         $user = auth()->user();
@@ -25,15 +25,12 @@ class PaymentMethodController extends Controller
                 'cvc' => '314',
             ],
         ]);
-        try{
+        try {
             $stripe->paymentMethods->attach(
-            'pm_1MqM05LkdIwHu7ixlDxxO6Mc',
-            ['customer' => $user->stripe_client_id]
+                'pm_1MqM05LkdIwHu7ixlDxxO6Mc',
+                ['customer' => $user->stripe_client_id]
             );
-
-
-        }catch(Exception $e){
-
+        } catch (Exception $e) {
         }
 
         return $paymentMethod;
@@ -50,5 +47,35 @@ class PaymentMethodController extends Controller
 
 
         return $paymentMethod;
+    }
+
+    public function setDefaultMethod(Request $request)
+    {
+        $request->validate([
+            'payment_method_id' => 'required'
+        ]);
+        $stripe = new \Stripe\StripeClient(config('app.stripe_pk'));
+        $user = auth()->user();
+        if (!$user->stripe_client_id) {
+            abort(422, 'No id client');
+        }
+        try {
+            $stripe->customers->update(
+                $user->stripe_client_id,
+                [
+                    'invoice_settings' => [
+                        'default_payment_method' => $request->payment_method_id,
+                    ],
+                ]
+            );
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            abort(422, 'Error');
+        }
+    }
+
+    public function setLastMethodPaymentAsDefault()
+    {
+        $user = auth()->user();
+        $user->setLastMethodPaymentAsDefault();
     }
 }
