@@ -14,11 +14,11 @@ class TwilioService
 
     public function sendVerificationCode($toPhoneNumber, $verificationCode)
     {
-        $message = "Welcome to ".config('app.name'). "\n Your verification code is: " . $verificationCode;
+        $messageBody = "Welcome to ".config('app.name'). "\n Your verification code is: " . $verificationCode;
 
-        $this->twilio->messages->create($toPhoneNumber, [
-            'from' => config('services.twilio.phone_number'),
-            'body' => $message,
+        $message = $this->twilio->messages->create($toPhoneNumber, [
+            'messagingServiceSid' => config('services.twilio.messaging_service_sid'),
+            'body' => $messageBody,
         ]);
     }
 }

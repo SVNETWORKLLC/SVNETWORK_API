@@ -32,6 +32,7 @@ return [
     ],
     'twilio' => [
         'sid' => env('TWILIO_SID'),
+        'messaging_service_sid' => env('TWILIO_MESSAGING_SERVICE_SID'),
         'token' => env('TWILIO_AUTH_TOKEN'),
         'phone_number' => env('TWILIO_PHONE_NUMBER'),
     ],
