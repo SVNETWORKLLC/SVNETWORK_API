@@ -17,7 +17,7 @@ class ProjectAnswerResource extends JsonResource
         return [
             'answer_id' => $this->id ?? null,
             'question_text' => $this->question?->text,
-            'answer_text' => $this->text
+            'answer_text' => $this->text ?? 'N/A'
         ];
     }
 }

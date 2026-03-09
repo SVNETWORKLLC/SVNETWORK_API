@@ -97,6 +97,7 @@ Route::get('/system/zipcode', [ZipcodeController::class, 'list']);
 //SEARCH
 Route::post('/search/custom/{noMatches}', [SearchController::class, 'searchCustom']);
 Route::post('/search/companies', [SearchController::class, 'searchCompanies']);
+Route::post('/search/form', [SearchController::class, 'searchForm']);
 Route::post('/search', [SearchController::class, 'search']);
 
 //PAYMENTS
@@ -154,7 +155,7 @@ Route::post('/projects/images', [ProjectController::class, 'storeImage'])->middl
 Route::post('/quotes/images', [QuoteController::class, 'storeImage'])->middleware(['web', 'auth:sanctum']);
 Route::post('/projects', [ProjectController::class, 'store'])->middleware(['web', 'auth:sanctum']);
 Route::post('/quotes/send', [QuoteController::class, 'send'])->middleware(['web', 'auth:sanctum']);
-Route::post('/quotes', [QuoteController::class, 'store'])->middleware(['web', 'auth:sanctum']);
+Route::post('/quotes', [QuoteController::class, 'store'])->middleware(['web']);
 Route::get('/projects/{project}', [ProjectController::class, 'show'])->middleware(['web', 'auth:sanctum']);
 Route::get('/quotes/{quote}', [QuoteController::class, 'show'])->middleware(['web', 'auth:sanctum']);
 Route::get('/matches/{match}/contact/check', [ProjectController::class, 'showContactCheck'])->middleware(['web', 'auth:sanctum']);

@@ -30,27 +30,37 @@ class QuoteController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-
-            'details' => 'required',
-            'service_id' => 'required',
-            'zipcode_id' => 'required',
-            'company_id' => 'required',
+            'data' => 'required'
         ]);
+        $files = $request->file('images');
+        $rawData = $request->input('data');
+        $payload = is_string($rawData)
+            ? json_decode($rawData)
+            : json_decode(json_encode($rawData ?? []));
 
-        $user = User::findOrfail($request->user_id);
-        $service = Service::find($request->service_id);
-        $company = Company::find($request->company_id);
-        $zipcode = Zipcode::find($request->zipcode_id);
+        $user = User::where('email', $payload->email)->first();
+        if (!$user) {
+            $user = User::create([
+                'name' => $payload->name ?? null,
+                'surname' => $payload->lastname ?? null,
+                'email' => $payload->email ?? null,
+                'phone' => $payload->phone ?? null,
+            ]);
+        }
+
+        $service = Service::find($payload->service_id);
+        $company = Company::find($payload->company_id);
+        $zipcode = Zipcode::where('zipcode', $payload->zipcode)->first();
         $title = $service->name . ' in ' . $zipcode->location . ', ' . $zipcode->state . ' ' . $zipcode->zipcode;
 
         $quote = $user->quotes()->create([
-            'description' => $request->details,
-            'service_id' => $request->service_id,
+            'description' => $payload->details,
+            'service_id' => $service->id,
             'title' => $title,
-            'zipcode_id' => $request->zipcode_id,
-            'user_id' => auth()->user()->id,
+            'zipcode_id' => $zipcode->id,
+            'user_id' => $user->id,
             'state_iso' => $zipcode->state_iso,
-            'company_id' => $request->company_id
+            'company_id' => $company->id
         ]);
         $quote->link = config('app.app_url') . '/user/companies/profile/quotes/' . $quote->id . '?utm_source=email';
         $data = [
@@ -58,6 +68,23 @@ class QuoteController extends Controller
             'quote' => new QuoteResource($quote)
         ];
 
+        if ($request->hasFile('images')) {
+            foreach ($files as $image) {
+                $filename = $quote->uuid.'/image-'.uniqid().'.'.$image->extension();
+                Storage::disk('quotes')->put($filename, file_get_contents($image));
+                $extension = $image->extension();
+                $size = $image->getSize();
+                $mimetype = $image->getMimeType();
+
+                $image = $quote->images()->create([
+                    'filename' => $filename,
+                    'mime_type' => $mimetype,
+                    'extension' => $extension,
+                    'type' => 1,
+                    'size' => $size,
+                ]);
+            }
+        }
         //Enviar notificaciones a la compania
         if ($company->users->count() > 0) {
             $company->users[0]->notify(new RequestAQuoteNotification($data));
