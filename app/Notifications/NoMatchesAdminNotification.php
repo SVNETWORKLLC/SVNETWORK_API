@@ -15,9 +15,19 @@ class NoMatchesAdminNotification extends Notification
      * Create a new notification instance.
      */
     protected $data;
+    protected $title;
+    protected $body;
+
     public function __construct($data)
     {
         $this->data = $data;
+        if(isset($data['service'])){
+            $this->title = 'No matches for '. $data['service']->name;
+            $this->body = 'No results found for the service '.$data['service']->name.' in the state of '. $data['zipcode']->state;
+        } else {
+            $this->title = 'No matches for custom search';
+            $this->body = 'No results found for a custom search: '. $data['description'] .' in the state of '. $data['zipcode']->state;
+        }
     }
 
     /**
@@ -36,9 +46,9 @@ class NoMatchesAdminNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-        ->subject('NOTIFICATION - No matches '. $this->data['service']->name)
+        ->subject($this->title)
                     ->line('Alerta:')
-                    ->line('No results found for the service '.$this->data['service']->name.' in the state of '. $this->data['zipcode']->state)
+                    ->line($this->body)
                     ->action('Show Dashboard', config('app.app_url').'/admin/matches');
     }
 

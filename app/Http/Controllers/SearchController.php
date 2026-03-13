@@ -51,20 +51,22 @@ class SearchController extends Controller
                 'phone' => $payload->user_data->phone ?? null,
             ]);
         }
-
-        $service = Service::find($payload->service_id);
+    $service = null;
+       if(isset($payload->service_id) && $payload->service_id){
+         $service = Service::find($payload->service_id);
         if (! $service) {
             abort(422, 'Service not found');
         }
+       }
 
         $zipcode = Zipcode::find($payload->zipcode_id);
         if (! $zipcode) {
             abort(422, 'Zipcode not found');
         }
-        $title = $service->name.' in '.$zipcode->location.', '.$zipcode->state.' '.$zipcode->zipcode;
+        $title = ($service ? $service->name : 'Service').' in '.$zipcode->location.', '.$zipcode->state.' '.$zipcode->zipcode;
         $project = $user->projects()->create([
             'description' => $payload->project_details,
-            'service_id' => $service->id,
+            'service_id' => $service?->id,
             'title' => $title,
             'zipcode_id' => $zipcode->id,
             'state_iso' => $zipcode->state_iso,
@@ -367,14 +369,15 @@ class SearchController extends Controller
         $request->validate(([
             'zipcode' => 'required',
             'email' => 'required',
-            'text' => 'required'
+            'text' => 'required',
+            'project_id' => 'required'
         ]));
         $user = User::where('email', $request->email)->first();
         if (auth()->user()) {
             $user = auth()->user();
         }
         $zipcode = Zipcode::where('zipcode', $request->zipcode)->first();
-
+        $project = Project::find($request->project_id);
         //implemnetar n8nservice
         $n8nService = new \App\Services\N8nService();
         $response = $n8nService->send([
@@ -382,11 +385,44 @@ class SearchController extends Controller
             'user_id' => $user->uuid
         ]);
         $companies = [];
+        $admins = User::where('is_admin', 1)->get();
         $message = $response['data']['output']['message'] ?? null;
         foreach($response['data']['output']['companies'] ?? [] as $company){
          $selectedCompany = Company::find($company['companyId']);
 
          array_push($companies, new SearchCompanyResource($selectedCompany));
+        }
+
+        if (count($companies) == 0) {
+
+            // if ($companiesMatchIds) {
+            //     abort(422, 'No matches');
+            // }
+            $nomatch = NoMatches::create([
+                'email' => $user->email,
+                'user_id' => $user->id,
+                'project_id' => $project->id,
+                'service_id' => null,
+            ]);
+            $data = [
+                'user' => $user,
+                'service' => null,
+                'description' => $project->description,
+                'zipcode' => $zipcode,
+            ];
+            foreach ($admins as $key => $admin) {
+                try {
+                    $admin->notify(new NoMatchesAdminNotification($data));
+                } catch (\Exception $e) {
+                    // Capturar el error y almacenarlo en el archivo de log
+                    Log::error('Error occurred: '.$e->getMessage(), [
+                        'exception' => $e,
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
+            }
+
+            return $nomatch;
         }
 
          return [
@@ -395,7 +431,7 @@ class SearchController extends Controller
                 'state' => $zipcode->state,
                 'zipcode' => $zipcode->zipcode,
             ],
-            'message' => 'We found '.count($companies).' companies that match the requested '.$service->name.' service.',
+            'message' => 'We found '.count($companies).' companies that match the requested service.',
             'companies' => collect($companies)->values()
         ];
     }
