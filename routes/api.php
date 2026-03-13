@@ -99,6 +99,7 @@ Route::post('/search/custom/{noMatches}', [SearchController::class, 'searchCusto
 Route::post('/search/companies', [SearchController::class, 'searchCompanies']);
 Route::post('/search/form', [SearchController::class, 'searchForm']);
 Route::post('/search', [SearchController::class, 'search']);
+Route::post('/search/ai', [SearchController::class, 'searchAi']);
 
 //PAYMENTS
 Route::get('/payments/retrieve/session/{id}', [PaymentController::class, 'retrieveSession'])->middleware(['web', 'auth:sanctum']);

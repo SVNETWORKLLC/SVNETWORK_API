@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\CompanyResource;
 use App\Http\Resources\CompanySearchResource;
 use App\Http\Resources\MatchesResource;
 use App\Http\Resources\MatchResource;
 use App\Http\Resources\NoMatchesResource;
 use App\Http\Resources\ProjectResource;
+use App\Http\Resources\SearchCompanyResource;
 use App\Models\AnswerProject;
 use App\Models\Company;
 use App\Models\CompanyService;
@@ -135,8 +137,23 @@ class SearchController extends Controller
         // Companies conditions
         // 1.- Non users repeated matches
         $today = Carbon::today();
-        $companiesMatchIds = Matches::where('service_id', $service_id)->where('email', $user->email)->whereDate('created_at', $today)->pluck('company_id')
-            ->toArray();
+        $repeatedServiceMatches= Matches::where('service_id', $service_id)->where('email', $user->email)->whereDate('created_at', $today)->get();
+
+        if($repeatedServiceMatches->count() > 0){
+            $companiesRepeated = $repeatedServiceMatches->map(function($match){
+                return $match->company;
+            });
+            return [
+            'zipcode' => [
+                'location' => $zipcode->location,
+                'state' => $zipcode->state,
+                'zipcode' => $zipcode->zipcode,
+            ],
+            'message' => 'We found '.$repeatedServiceMatches->count().' companies that match the requested '.$service->name.' service.',
+            'companies' => SearchCompanyResource::collection($companiesRepeated)->values()
+        ];
+        }
+
         // 2.- companies where service is paused
         $companiesServicePause = CompanyService::where('service_id', $service_id)->where('pause', 1)->pluck('company_id');
         $companies = Company::all();
@@ -165,7 +182,7 @@ class SearchController extends Controller
         $matches = $service->companyServiceZip
             ->where('zipcode_id', $zipcode->id)
             ->whereNotIn('company_id', $companiesNotVerified)
-            ->whereNotIn('company_id', $companiesMatchIds)
+            // ->whereNotIn('company_id', $companiesMatchIds)
             ->whereNotIn('company_id', $companiesServicePause)
             // ->whereNotIn('company_id', $companiesDefaults)
             // ->whereIn('company_id', $companiesWithoutPaymentMethod)
@@ -174,9 +191,9 @@ class SearchController extends Controller
         // No matches actions
         if (count($matches) == 0) {
 
-            if ($companiesMatchIds) {
-                abort(422, 'Service Repeated');
-            }
+            // if ($companiesMatchIds) {
+            //     abort(422, 'No matches');
+            // }
             $nomatch = NoMatches::create([
                 'email' => $user->email,
                 'user_id' => $user->id,
@@ -314,7 +331,7 @@ class SearchController extends Controller
                 ]);
             }
 
-            return $match->company;
+            return new SearchCompanyResource($company);
         }); // matches map
 
         $matches = $matches->filter(function ($value) {
@@ -334,7 +351,53 @@ class SearchController extends Controller
             }
         }
 
-        return MatchResource::collection($matches);
+          return [
+            'zipcode' => [
+                'location' => $zipcode->location,
+                'state' => $zipcode->state,
+                'zipcode' => $zipcode->zipcode,
+            ],
+            'message' => 'We found '.count($matches).' companies that match the requested '.$service->name.' service.',
+            'companies' => $matches->values()
+        ];
+    }
+
+    public function searchAi(Request $request)
+    {
+        $request->validate(([
+            'zipcode' => 'required',
+            'email' => 'required',
+            'text' => 'required'
+        ]));
+        $user = User::where('email', $request->email)->first();
+        if (auth()->user()) {
+            $user = auth()->user();
+        }
+        $zipcode = Zipcode::where('zipcode', $request->zipcode)->first();
+
+        //implemnetar n8nservice
+        $n8nService = new \App\Services\N8nService();
+        $response = $n8nService->send([
+            'text' => $request->text,
+            'user_id' => $user->uuid
+        ]);
+        $companies = [];
+        $message = $response['data']['output']['message'] ?? null;
+        foreach($response['data']['output']['companies'] ?? [] as $company){
+         $selectedCompany = Company::find($company['companyId']);
+
+         array_push($companies, new SearchCompanyResource($selectedCompany));
+        }
+
+         return [
+            'zipcode' => [
+                'location' => $zipcode->location,
+                'state' => $zipcode->state,
+                'zipcode' => $zipcode->zipcode,
+            ],
+            'message' => 'We found '.count($companies).' companies that match the requested '.$service->name.' service.',
+            'companies' => collect($companies)->values()
+        ];
     }
 
     public function searchCompanies(Request $request)

@@ -37,9 +37,14 @@ return [
         'phone_number' => env('TWILIO_PHONE_NUMBER'),
     ],
     'google' => [
-    'client_id' => env('GOOGLE_CLIENT_ID'),
-    'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-    'redirect' => env('GOOGLE_CALLBACK_URL'),
-],
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_CALLBACK_URL'),
+    ],
+    'n8n' => [
+            'webhook_url_search' => env('N8N_WEBHOOK_URL_SEARCH'),
+            'credentials' => env('N8N_CREDENTIALS'),
+            'timeout' => env('N8N_SEARCH_TIMEOUT', 30),
+        ],
 
 ];
