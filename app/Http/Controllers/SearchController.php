@@ -384,16 +384,22 @@ class SearchController extends Controller
             'text' => $request->text,
             'user_id' => $user->uuid
         ]);
-        $companies = [];
+        $matches = [];
         $admins = User::where('is_admin', 1)->get();
         $message = $response['data']['output']['message'] ?? null;
+        $service_id = $response['data']['output']['service_id'] ?? null;
+        if($service_id){
+            $service = Service::find($service_id);
+        } else {
+            $service = null;
+        }
         foreach($response['data']['output']['companies'] ?? [] as $company){
          $selectedCompany = Company::find($company['companyId']);
 
-         array_push($companies, new SearchCompanyResource($selectedCompany));
+         array_push($matches, new SearchCompanyResource($selectedCompany));
         }
 
-        if (count($companies) == 0) {
+        if (count($matches) == 0) {
 
             // if ($companiesMatchIds) {
             //     abort(422, 'No matches');
@@ -402,11 +408,11 @@ class SearchController extends Controller
                 'email' => $user->email,
                 'user_id' => $user->id,
                 'project_id' => $project->id,
-                'service_id' => null,
+                'service_id' => $service ? $service->id : null,
             ]);
             $data = [
                 'user' => $user,
-                'service' => null,
+                'service' => $service,
                 'description' => $project->description,
                 'zipcode' => $zipcode,
             ];
@@ -425,14 +431,37 @@ class SearchController extends Controller
             return $nomatch;
         }
 
-         return [
+        foreach ($matches as $company) {
+            $company->projects()->attach($project->id);
+            $match = Matches::create([
+                'email' => $user->email,
+                'user_id' => $user->id,
+                'company_id' => $company->id,
+                'project_id' => $project->id,
+                'service_id' => $service ? $service->id : null,
+            ]);
+
+            try {
+                $user->link = config('app.app_url').'/user/companies/profile/leads/'.$project->id.'/'.$match->id;
+                $user->service = $service ? $service : new Service(['name' => 'AI Search']);
+                $company->users[0]->notify(new MatchesCompanyNotification($user));
+            } catch (\Exception $e) {
+                // Capturar el error y almacenarlo en el archivo de log
+                Log::error('Error occurred: '.$e->getMessage(), [
+                    'exception' => $e,
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
+
+        return [
             'zipcode' => [
                 'location' => $zipcode->location,
                 'state' => $zipcode->state,
                 'zipcode' => $zipcode->zipcode,
             ],
-            'message' => 'We found '.count($companies).' companies that match the requested service.',
-            'companies' => collect($companies)->values()
+            'message' => $message ?? 'We found '.count($matches).' companies that match the requested service.',
+            'companies' => collect($matches)->values()
         ];
     }
 
