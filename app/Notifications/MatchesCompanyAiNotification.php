@@ -45,8 +45,8 @@ class MatchesCompanyAiNotification extends Notification
                     ->line("Client's email: ".$this->project->user->email)
                     ->line("Client's phone: ".$this->project->user->phone)
                     ->line("Project: ".$this->project->description)
-                    ->action('Claim your profile', url($this->link ?? $this->project->link))
-                    ->line('Thank you for using our application!');
+                    ->action('Claim your company', $this->link)
+                    ->line('If you want to attract more clients, claim your company profile and increase your visibility.');
     }
 
     /**

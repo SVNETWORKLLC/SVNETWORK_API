@@ -159,10 +159,12 @@ class Company extends Model
     {
         $adminUsers = $this->users()->where('is_admin', true)->get();
         $link = null;
+        //signedUrl route to claim company profile
 
         foreach ($adminUsers as $user) {
             try {
-                $user->notify(new MatchesCompanyAiNotification($project));
+                $link = 'http://localhost:3000/user/companies/profile/leads/'.$project->id;
+                $user->notify(new MatchesCompanyAiNotification($project, $link));
 
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log

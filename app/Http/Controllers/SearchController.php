@@ -375,13 +375,13 @@ class SearchController extends Controller
         }
         $zipcode = Zipcode::where('zipcode', $request->zipcode)->first();
         $project = Project::find($request->project_id);
-
+        $locationText = " My default location is:". $zipcode->location.', '.$zipcode->state.' '.$zipcode->zipcode. " Region is: ".$zipcode->region;
         $matches = [];
         // implemnetar n8nservice
         try {
             $n8nService = new \App\Services\N8nService;
             $response = $n8nService->send([
-                'text' => $request->text,
+                'text' => $request->text . $locationText,
                 'user_id' => $user->uuid,
             ]);
             $message = $response['data']['output']['message'] ?? null;
@@ -459,7 +459,7 @@ class SearchController extends Controller
             try {
                 $user->link = config('app.app_url').'/user/companies/profile/leads/'.$project->id.'/'.$match->id;
                 $user->service = $serviceCustom;
-                $company->sendMatchAiNotification($project);
+                $user->notify(new MatchesCompanyAiNotification($project));
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log
                 Log::error('Error occurred: '.$e->getMessage(), [
