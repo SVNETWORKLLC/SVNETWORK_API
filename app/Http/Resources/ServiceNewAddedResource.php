@@ -15,10 +15,10 @@ class ServiceNewAddedResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'service_name' =>$this->service->name,
-            'service_slug' =>$this->service->slug,
-            'state_name'=> $this->state->name_en,
-            'state_slug'=> $this->state->slug
+            'service_name' =>$this->service->name ?? 'No service',
+            'service_slug' =>$this->service->slug ?? 'no-service',
+            'state_name'=> $this->state->name_en ?? 'No state',
+            'state_slug'=> $this->state->slug ?? 'no-state'
         ];
     }
 }

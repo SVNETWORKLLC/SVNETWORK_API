@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\MatchesCompanyAiNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -153,5 +154,23 @@ class Company extends Model
     public function getServicesByCategory($category_id)
     {
         return $this->services()->where('category_id', $category_id)->get();
+    }
+    public function sendMatchAiNotification($project)
+    {
+        $adminUsers = $this->users()->where('is_admin', true)->get();
+        $link = null;
+
+        foreach ($adminUsers as $user) {
+            try {
+                $user->notify(new MatchesCompanyAiNotification($project));
+
+            } catch (\Exception $e) {
+                // Capturar el error y almacenarlo en el archivo de log
+                Log::error('Error occurred: '.$e->getMessage(), [
+                    'user_id' => $user->id,
+                    'company_id' => $this->id,
+                ]);
+            }
+        }
     }
 }

@@ -61,6 +61,7 @@ Route::post('/auth/register/google/reviews', [RegisterController::class, 'regist
 Route::post('/auth/login', [LoginController::class, 'login'])->middleware('web');
 Route::post('/auth/logout', [LoginController::class, 'logout'])->middleware('web');
 Route::post('/auth/register/verification', [VerificationController::class, 'verifyEmail'])->middleware('signed');
+Route::post('/auth/register/claim', [VerificationController::class, 'claimCompany'])->middleware('signed');
 Route::post('/auth/email/verify/resend/{email}', [VerificationController::class, 'resend']);
 Route::post('/auth/renew-password/send', [RenewPasswordController::class, 'send']);
 

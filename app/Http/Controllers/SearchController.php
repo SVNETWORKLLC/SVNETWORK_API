@@ -2,10 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Resources\CompanyResource;
 use App\Http\Resources\CompanySearchResource;
 use App\Http\Resources\MatchesResource;
-use App\Http\Resources\MatchResource;
 use App\Http\Resources\NoMatchesResource;
 use App\Http\Resources\ProjectResource;
 use App\Http\Resources\SearchCompanyResource;
@@ -20,6 +18,7 @@ use App\Models\Service;
 use App\Models\Transactions;
 use App\Models\User;
 use App\Models\Zipcode;
+use App\Notifications\MatchesCompanyAiNotification;
 use App\Notifications\MatchesCompanyNotification;
 use App\Notifications\MatchesUserNotification;
 use App\Notifications\NoMatchesAdminNotification;
@@ -30,7 +29,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
-use Mautic\Api\Roles;
 
 class SearchController extends Controller
 {
@@ -43,7 +41,7 @@ class SearchController extends Controller
             : json_decode(json_encode($rawData ?? []));
 
         $user = User::where('email', $payload->user_data->email)->first();
-        if (!$user) {
+        if (! $user) {
             $user = User::create([
                 'name' => $payload->user_data->name ?? null,
                 'surname' => $payload->user_data->lastname ?? null,
@@ -51,18 +49,22 @@ class SearchController extends Controller
                 'phone' => $payload->user_data->phone ?? null,
             ]);
         }
-    $service = null;
-       if(isset($payload->service_id) && $payload->service_id){
-         $service = Service::find($payload->service_id);
-        if (! $service) {
-            abort(422, 'Service not found');
+        $service = null;
+        if (isset($payload->service_id) && $payload->service_id) {
+            $service = Service::find($payload->service_id);
+            if (! $service) {
+                abort(422, 'Service not found');
+            }
         }
-       }
 
-        $zipcode = Zipcode::find($payload->zipcode_id);
-        if (! $zipcode) {
-            abort(422, 'Zipcode not found');
+        $zipcode = null;
+        if ($payload->zipcode_id) {
+            $zipcode = Zipcode::find($payload->zipcode_id);
         }
+        if ($payload->zipcode) {
+            $zipcode = Zipcode::where('zipcode', $payload->zipcode)->first();
+        }
+
         $title = ($service ? $service->name : 'Service').' in '.$zipcode->location.', '.$zipcode->state.' '.$zipcode->zipcode;
         $project = $user->projects()->create([
             'description' => $payload->project_details,
@@ -90,8 +92,7 @@ class SearchController extends Controller
             }
         }
 
-
-          foreach($payload->answers as $answer){
+        foreach ($payload->answers as $answer) {
             $question = Question::find($answer->question_id);
 
             AnswerProject::create([
@@ -105,11 +106,6 @@ class SearchController extends Controller
 
         return $project;
     }
-
-
-
-
-
 
     public function search(Request $request)
     {
@@ -139,21 +135,22 @@ class SearchController extends Controller
         // Companies conditions
         // 1.- Non users repeated matches
         $today = Carbon::today();
-        $repeatedServiceMatches= Matches::where('service_id', $service_id)->where('email', $user->email)->whereDate('created_at', $today)->get();
+        $repeatedServiceMatches = Matches::where('service_id', $service_id)->where('email', $user->email)->whereDate('created_at', $today)->get();
 
-        if($repeatedServiceMatches->count() > 0){
-            $companiesRepeated = $repeatedServiceMatches->map(function($match){
+        if ($repeatedServiceMatches->count() > 0) {
+            $companiesRepeated = $repeatedServiceMatches->map(function ($match) {
                 return $match->company;
             });
+
             return [
-            'zipcode' => [
-                'location' => $zipcode->location,
-                'state' => $zipcode->state,
-                'zipcode' => $zipcode->zipcode,
-            ],
-            'message' => 'We found '.$repeatedServiceMatches->count().' companies that match the requested '.$service->name.' service.',
-            'companies' => SearchCompanyResource::collection($companiesRepeated)->values()
-        ];
+                'zipcode' => [
+                    'location' => $zipcode->location,
+                    'state' => $zipcode->state,
+                    'zipcode' => $zipcode->zipcode,
+                ],
+                'message' => 'We found '.$repeatedServiceMatches->count().' companies that match the requested '.$service->name.' service.',
+                'companies' => SearchCompanyResource::collection($companiesRepeated)->values(),
+            ];
         }
 
         // 2.- companies where service is paused
@@ -353,14 +350,14 @@ class SearchController extends Controller
             }
         }
 
-          return [
+        return [
             'zipcode' => [
                 'location' => $zipcode->location,
                 'state' => $zipcode->state,
                 'zipcode' => $zipcode->zipcode,
             ],
             'message' => 'We found '.count($matches).' companies that match the requested '.$service->name.' service.',
-            'companies' => $matches->values()
+            'companies' => $matches->values(),
         ];
     }
 
@@ -370,7 +367,7 @@ class SearchController extends Controller
             'zipcode' => 'required',
             'email' => 'required',
             'text' => 'required',
-            'project_id' => 'required'
+            'project_id' => 'required',
         ]));
         $user = User::where('email', $request->email)->first();
         if (auth()->user()) {
@@ -378,41 +375,53 @@ class SearchController extends Controller
         }
         $zipcode = Zipcode::where('zipcode', $request->zipcode)->first();
         $project = Project::find($request->project_id);
-        //implemnetar n8nservice
-        $n8nService = new \App\Services\N8nService();
-        $response = $n8nService->send([
-            'text' => $request->text,
-            'user_id' => $user->uuid
-        ]);
-        $matches = [];
-        $admins = User::where('is_admin', 1)->get();
-        $message = $response['data']['output']['message'] ?? null;
-        $service_id = $response['data']['output']['service_id'] ?? null;
-        if($service_id){
-            $service = Service::find($service_id);
-        } else {
-            $service = null;
-        }
-        foreach($response['data']['output']['companies'] ?? [] as $company){
-         $selectedCompany = Company::find($company['companyId']);
 
-         array_push($matches, new SearchCompanyResource($selectedCompany));
+        $matches = [];
+        // implemnetar n8nservice
+        try {
+            $n8nService = new \App\Services\N8nService;
+            $response = $n8nService->send([
+                'text' => $request->text,
+                'user_id' => $user->uuid,
+            ]);
+            $message = $response['data']['output']['message'] ?? null;
+            $service_id = $response['data']['output']['service_id'] ?? null;
+            if ($service_id) {
+                $service = Service::find($service_id);
+            } else {
+                $service = null;
+            }
+            foreach ($response['data']['output']['companies'] ?? [] as $company) {
+                $selectedCompany = Company::find($company['companyId']);
+
+                array_push($matches, new SearchCompanyResource($selectedCompany));
+            }
+        } catch (\Exception $e) {
+            Log::error('Error N8N Service: '.$e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
         }
+        $admins = User::where('is_admin', 1)->get();
 
         if (count($matches) == 0) {
 
-            // if ($companiesMatchIds) {
-            //     abort(422, 'No matches');
-            // }
+            $serviceCustom = Service::updateOrCreate([
+                'name' => $service ? $service->name : 'AI Search',
+            ], [
+                'description' => $service ? $service->description : 'Service found by AI',
+                'price' => 0,
+            ]);
             $nomatch = NoMatches::create([
                 'email' => $user->email,
                 'user_id' => $user->id,
                 'project_id' => $project->id,
-                'service_id' => $service ? $service->id : null,
+                'service_id' => $serviceCustom->id,
             ]);
             $data = [
                 'user' => $user,
-                'service' => $service,
+                'service' => $serviceCustom,
                 'description' => $project->description,
                 'zipcode' => $zipcode,
             ];
@@ -430,6 +439,12 @@ class SearchController extends Controller
 
             return $nomatch;
         }
+        $serviceCustom = Service::updateOrCreate([
+            'name' => $service ? $service->name : 'AI Search',
+        ], [
+            'description' => $service ? $service->description : 'Service found by AI',
+            'price' => 0,
+        ]);
 
         foreach ($matches as $company) {
             $company->projects()->attach($project->id);
@@ -438,13 +453,13 @@ class SearchController extends Controller
                 'user_id' => $user->id,
                 'company_id' => $company->id,
                 'project_id' => $project->id,
-                'service_id' => $service ? $service->id : null,
+                'service_id' => $serviceCustom->id,
             ]);
 
             try {
                 $user->link = config('app.app_url').'/user/companies/profile/leads/'.$project->id.'/'.$match->id;
-                $user->service = $service ? $service : new Service(['name' => 'AI Search']);
-                $company->users[0]->notify(new MatchesCompanyNotification($user));
+                $user->service = $serviceCustom;
+                $company->sendMatchAiNotification($project);
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log
                 Log::error('Error occurred: '.$e->getMessage(), [
@@ -461,7 +476,7 @@ class SearchController extends Controller
                 'zipcode' => $zipcode->zipcode,
             ],
             'message' => $message ?? 'We found '.count($matches).' companies that match the requested service.',
-            'companies' => collect($matches)->values()
+            'companies' => collect($matches)->values(),
         ];
     }
 

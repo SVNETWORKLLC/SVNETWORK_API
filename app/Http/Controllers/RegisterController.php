@@ -228,4 +228,6 @@ class RegisterController extends Controller
 
         return new UserResource($user);
     }
+
+
 }
