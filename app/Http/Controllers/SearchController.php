@@ -124,7 +124,6 @@ class SearchController extends Controller
         if (! $service) {
             return [];
         }
-        $price = $service?->price > 0 ? round($service->price * 100, 0) : 0;
 
         $user = User::where('email', $request->email)->first();
         $admins = User::where('is_admin', 1)->get();
@@ -154,39 +153,44 @@ class SearchController extends Controller
         }
 
         // 2.- companies where service is paused
-        $companiesServicePause = CompanyService::where('service_id', $service_id)->where('pause', 1)->pluck('company_id');
-        $companies = Company::all();
-
         // 3.-Companies without payment method
-        $companiesWithoutPaymentMethod = $companies->map(function ($company) {
-            if ($company->users->count()) {
-                return $company->users->first()->stripe_client_id != null ? $company->id : null;
-            }
-        })->whereNotNull()->toArray();
         // 4.-Companies not verified
-        $companiesNotVerified = $companies->map(function ($company) {
-            return $company->verified == 0 ? $company->id : null;
-        })->whereNotNull()->toArray();
-
         // 5.-Companies has more than defaults payments
-        $companiesDefaults = Transactions::selectRaw('company_id, COUNT(*) as count')
-            ->where('paid', 0)
-            ->groupBy('company_id')
-            ->get();
 
-        $companiesDefaults = $companiesDefaults->map(function ($row) {
-            return $row->count >= 5 ? $row->company_id : null;
-        })->whereNotNull()->toArray();
 
-        $matches = $service->companyServiceZip
-            ->where('zipcode_id', $zipcode->id)
-            ->whereNotIn('company_id', $companiesNotVerified)
-            // ->whereNotIn('company_id', $companiesMatchIds)
-            ->whereNotIn('company_id', $companiesServicePause)
-            // ->whereNotIn('company_id', $companiesDefaults)
-            // ->whereIn('company_id', $companiesWithoutPaymentMethod)
-            ->take(3);
+        $matches = [];
+        // implemnetar n8nservice
+        $category = $service->category ? $service->category->name : 'no category';
+        $message = 'Search company for service '.$service->name.' or Category: '.$category.' and zipcode '.$zipcode->zipcode. " Location: ".$zipcode->location . ", State: ".$zipcode->state. ",Region: ".$zipcode->region .". ";
+        $message .= "Project description: ".$project->description.". ";
+        foreach ($project->answers as $key => $answer) {
+                $message .= "Question ".($key + 1)." : ".$answer->question?->text . " Answer: " . $answer->text . ". ";
+        }
+        try {
+            $n8nService = new \App\Services\N8nService;
+            $response = $n8nService->send([
+                'text' => $message ?? '',
+                'user_id' => $user->uuid,
+            ]);
+            $message = $response['data']['output']['message'] ?? null;
 
+            foreach ($response['data']['output']['companies'] ?? [] as $company) {
+                $selectedCompany = Company::find($company['companyId']);
+
+                array_push($matches, new SearchCompanyResource($selectedCompany));
+            }
+            // $matches = collect($matches)->filter(function ($company) use ($companiesNotVerified, $companiesServicePause, $companiesWithoutPaymentMethod, $companiesDefaults) {
+            //     return
+            //         in_array($company->id, $companiesServicePause);
+            // })->values();
+
+        } catch (\Exception $e) {
+            Log::error('Error N8N Service: '.$e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+        }
         // No matches actions
         if (count($matches) == 0) {
 
@@ -220,122 +224,6 @@ class SearchController extends Controller
         }
 
         $matches_array = [];
-        $matches = $matches->map(function ($match) use ($service_id, $user, $project_id, $service) {
-
-            $payment_message = null;
-            $status = false;
-            $payment_code = null;
-
-            // Envio cobro a compania en caso de que sea verificada y creada por usuario
-            $company = Company::find($match->company->id);
-            $company->projects()->attach($project_id);
-            $payment = null;
-            // if ($match->company->users) {
-
-            //     $payment_method_id = null;
-            //     if ($match->company->users[0]->stripe_client_id) {
-
-            //         $stripe = new \Stripe\StripeClient(config('app.stripe_pk'));
-            //         $payment_methods = $stripe->paymentMethods->all([
-            //             'type' => 'card',
-            //             'limit' => 3,
-            //             'customer' => $match->company->users[0]->stripe_client_id,
-            //         ]);
-
-            //         if ($payment_methods->data) {
-            //             $payment_method_id = $payment_methods->data[0]->id;
-
-            //             try {
-            //                 if ($service->price > 0) {
-
-            //                     $payment = $stripe->paymentIntents->create([
-            //                         'amount' => $service->price  * 100,
-            //                         'currency' => 'usd',
-            //                         'customer' => $match->company->users[0]->stripe_client_id,
-            //                         'payment_method' => $payment_method_id,
-            //                         'confirm' => true,
-            //                         'description' => 'Match ' . $service->name,
-            //                         'confirmation_method' => 'automatic', // Utiliza 'automatic' para pagos automáticos
-            //                         'metadata' => [
-            //                             'customer_name' => $match->company->users[0]->name . ' ' . $match->company->users[0]->surname,
-            //                             // Agrega más metadatos según sea necesario
-            //                         ],
-            //                         'return_url' => config('app.app_url') . '/user/companies/profile'
-            //                     ]);
-            //                 }
-
-            //                 $status = true;
-            //                 Transactions::create([
-            //                     'user_id' => $match->company->users[0]->id,
-            //                     'project_id' => $project_id,
-            //                     'service_id' => $service->id,
-            //                     'stripe_payment_method' => $payment_method_id,
-            //                     'price' => $service->price,
-            //                     'company_id' => $match->company->id,
-            //                     'paid' => $status,
-            //                     'message' => null,
-            //                     'match_id' => $match->id,
-            //                     'stripe_payment_intent' => $payment->id,
-            //                     'payment_code' => $payment_code,
-            //                 ]);
-            //             } catch (\Stripe\Exception\ApiErrorException $e) {
-            //                 Log::error('Error matches: ' . $e->getMessage(), [
-            //                     'exception' => $e,
-            //                     'trace' => $e->getTraceAsString(),
-            //                 ]);
-            //                 $status = false;
-            //                 $payment_message = $e->getError()->message;
-            //                 $payment_code = $e->getError()->decline_code;
-
-            //                 // Maneja el error de Stripe aquí
-            //                 // Puedes registrar el error, mostrar un mensaje al usuario, etc.
-            //                 // Pero el código continuará ejecutándose después de este bloque catch
-            //                 if ($payment_method_id) {
-
-            //                     Transactions::create([
-            //                         'user_id' => $match->company->users[0]->id,
-            //                         'project_id' => $project_id,
-            //                         'service_id' => $service->id,
-            //                         'company_id' => $match->company->id,
-            //                         'stripe_payment_method' => $payment_method_id,
-            //                         'price' => $service->price,
-            //                         'paid' => $status,
-            //                         'match_id' => $match->id,
-            //                         'message' => $payment_message,
-            //                         'payment_code' => $payment_code,
-            //                     ]);
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }
-
-            $match = Matches::create([
-                'email' => $user->email,
-                'user_id' => $user->id,
-                'company_id' => $match->company->id,
-                'project_id' => $project_id,
-                'service_id' => $service_id,
-            ]);
-
-            try {
-                $user->link = config('app.app_url').'/user/companies/profile/leads/'.$project_id.'/'.$match->id;
-                $user->service = $service;
-                $match->company->users[0]->notify(new MatchesCompanyNotification($user));
-            } catch (\Exception $e) {
-                // Capturar el error y almacenarlo en el archivo de log
-                Log::error('Error occurred: '.$e->getMessage(), [
-                    'exception' => $e,
-                    'trace' => $e->getTraceAsString(),
-                ]);
-            }
-
-            return new SearchCompanyResource($company);
-        }); // matches map
-
-        $matches = $matches->filter(function ($value) {
-            return ! is_null($value);
-        });
 
         if (count($matches)) {
             $data = ['matches' => $matches, 'service' => $service];
@@ -356,8 +244,8 @@ class SearchController extends Controller
                 'state' => $zipcode->state,
                 'zipcode' => $zipcode->zipcode,
             ],
-            'message' => 'We found '.count($matches).' companies that match the requested '.$service->name.' service.',
-            'companies' => $matches->values(),
+            'message' => $message ?? 'We found '.count($matches).' companies that match the requested service.',
+            'companies' => $matches,
         ];
     }
 
@@ -375,13 +263,14 @@ class SearchController extends Controller
         }
         $zipcode = Zipcode::where('zipcode', $request->zipcode)->first();
         $project = Project::find($request->project_id);
-        $locationText = " My default location is:". $zipcode->location.', '.$zipcode->state.' '.$zipcode->zipcode. " Region is: ".$zipcode->region;
+
+        $searchText = $request->text." My default location is:". $zipcode->location.', State:'.$zipcode->state.' ,Zipcode:'.$zipcode->zipcode. " Region is: ".$zipcode->region. " State ISO: ".$zipcode->state_iso;
         $matches = [];
         // implemnetar n8nservice
         try {
             $n8nService = new \App\Services\N8nService;
             $response = $n8nService->send([
-                'text' => $request->text . $locationText,
+                'text' => $searchText,
                 'user_id' => $user->uuid,
             ]);
             $message = $response['data']['output']['message'] ?? null;
