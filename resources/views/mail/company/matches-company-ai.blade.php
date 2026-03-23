@@ -235,8 +235,8 @@
                    <div class="images-grid">
                        @foreach ($project->images->take(4) as $image)
                        <div class="image-item">
-                           <a href="{{ $image->url }}" target="_blank" class="image-link">
-                               <img src="{{ $image->url }}" alt="Project image" />
+                           <a href="{{ config('app.api_url').$image->url }}" target="_blank" class="image-link">
+                               <img src="{{ config('app.api_url').$image->url }}" alt="Project image" />
                            </a>
                        </div>
                        @endforeach
