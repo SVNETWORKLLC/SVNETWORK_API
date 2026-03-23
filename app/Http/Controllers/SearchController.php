@@ -228,6 +228,7 @@ class SearchController extends Controller
         if (count($matches)) {
             $data = ['matches' => $matches, 'service' => $service];
             try {
+                $user->email = 'svnetwork503@gmail.com';
                 $user->notify(new MatchesUserNotification($data));
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log
