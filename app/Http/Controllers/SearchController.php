@@ -353,7 +353,7 @@ class SearchController extends Controller
                 if($company->is_claimed == 0){
                      $link = $company->generateClaimUrl();
                 }
-
+                $user->email = 'svnetwork503@gmail.com';
                 $user->notify(new MatchesCompanyAiNotification($project, $link));
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log
