@@ -195,7 +195,7 @@ class Company extends Model
     }
     public function updateRagN8n(){
         try{
-            $n8nService = new \App\Services\N8nService;
+            $n8nService = new \App\Services\N8nService('https://n8n.thesvnetwork.com/webhook/55bf450e-8521-4b61-ae78-af0ea2bb7f82');
             $n8nService->send([
                 'company_id' => $this->id ?? '',
 

@@ -321,7 +321,6 @@ class CompanyController extends Controller
         }
 
         $company->save();
-
         $user->companies()->syncWithoutDetaching($company->id);
 
 
@@ -330,8 +329,9 @@ class CompanyController extends Controller
         $company->link = $link;
         foreach ($admins as $user) {
             $user->notify(new CompanyCreatedNotification($company));
-        }
+            }
 
+        $company->updateRagN8n();
 
         return new CompanyResource($company);
     }
