@@ -662,6 +662,7 @@ class CompanyController extends Controller
         }
 
         $company->save();
+        $company->updateRagN8n();
 
         return $company;
     }
@@ -913,6 +914,7 @@ class CompanyController extends Controller
         }
 
         $company->save();
+        $company->updateRagN8n();
         $companies = Company::orderBy('id', 'desc')->get();
         return CompanyResource::collection($companies);
     }
@@ -989,6 +991,7 @@ class CompanyController extends Controller
         }
 
         $company->save();
+        $company->updateRagN8n();
         $companies = Company::orderBy('id', 'desc')->get();
         return CompanyResource::collection($companies);
     }
@@ -1017,7 +1020,7 @@ class CompanyController extends Controller
             $firstService = $company->services->first();
             $repuesta = self::copyStatesByService($company->id, $request->service);
         }
-
+        $company->updateRagN8n();
         return new UserCompanyResource($company);
     }
     public function copyStates(Request $request)
@@ -1050,7 +1053,7 @@ class CompanyController extends Controller
         Service::find($request->service_id);
         //Agrego todo los estados y zipcodes
         $repuesta = self::copyStatesByService($company->id, $request->service_id);
-
+        $company->updateRagN8n();
         return new UserCompanyResource($company);
     }
 
@@ -1114,42 +1117,6 @@ class CompanyController extends Controller
                 ]);
             }
         }
-        // $companyStatesIds->map(function ($stateId) use ($company_id, $newServiceId, $companyZipcodes) {
-
-        //     $service = Service::find($newServiceId);
-
-        //     $exists = $service?->states()
-        //     ->wherePivot('state_id', $stateId)
-        //     ->wherePivot('company_id', $company_id)
-        //     ->exists();
-
-        //     if (!$exists) {
-
-        //         $service->states()->attach([
-        //             $stateId => ["company_id" => $company_id]
-        //         ]);
-        //     }
-
-        //     foreach ($companyZipcodes as $zipcode) {
-        //         $exists = $service->zipcodes()
-        //             ->wherePivot('zipcode_id', $zipcode['id'])
-        //             ->wherePivot('company_id', $company_id)
-        //             ->exists();
-
-        //         if (!$exists) {
-        //             CompanyServiceZip::create([
-        //                 'zipcode_id' => $zipcode['id'],
-        //                 'company_id' => $company_id,
-        //                 'service_id' => $newServiceId,
-        //                 'region_text' => $zipcode['region'],
-        //                 'active' => true,
-        //                 'state_iso' => $zipcode['state_iso']
-        //             ]);
-        //         }
-        //     }
-        // });
-
-        // return $companyStatesIds;
     }
     public function addState(Request $request)
     {

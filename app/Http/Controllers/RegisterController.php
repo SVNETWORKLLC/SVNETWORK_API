@@ -91,7 +91,7 @@ class RegisterController extends Controller
         $user->link = $link;
 
         $user->notify(new UserCreatedNotification($user));
- Auth::login($user);
+        Auth::login($user);
      return new UserResource($user);
     }
     function registerCompany(Request $request)

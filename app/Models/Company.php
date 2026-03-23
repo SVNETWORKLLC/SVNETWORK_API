@@ -193,4 +193,15 @@ class Company extends Model
         $link = str_replace('/api', '', $link);
         return $link;
     }
+    public function updateRagN8n(){
+        try{
+            $n8nService = new \App\Services\N8nService;
+            $n8nService->send([
+                'company_id' => $this->id ?? '',
+
+            ]);
+        }catch(\Exception $e){
+            \Log::error('Error sending company data to n8n: '.$e->getMessage());
+        }
+    }
 }
