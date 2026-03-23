@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 use Cviebrock\EloquentSluggable\Sluggable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\URL;
 
 class Company extends Model
 {
@@ -168,11 +169,28 @@ class Company extends Model
 
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log
-                Log::error('Error occurred: '.$e->getMessage(), [
+                \Log::error('Error occurred: '.$e->getMessage(), [
                     'user_id' => $user->id,
                     'company_id' => $this->id,
                 ]);
             }
         }
+    }
+
+    public function generateClaimUrl()
+    {
+        $link = URL::temporarySignedRoute(
+            'auth.claim-company',
+            now()->addMinutes(60),
+            [
+                'email' => $this->users()->first()->email,
+                'user_id' => $this->users()->first()->uuid ?? null,
+            ]
+        );
+        $api_url = config('app.api_url');
+        $web_url = config('app.app_url');
+        $link = str_replace($api_url, $web_url, $link);
+        $link = str_replace('/api', '', $link);
+        return $link;
     }
 }

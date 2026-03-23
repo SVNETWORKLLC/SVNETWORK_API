@@ -38,15 +38,12 @@ class MatchesCompanyAiNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-                    ->greeting('Hello '. $notifiable->name)
-                    ->subject('You have a new Client')
-                    ->line("You have received a new match from SVNETWORK.")
-                    ->line("Client's name: ".$this->project->user->name)
-                    ->line("Client's email: ".$this->project->user->email)
-                    ->line("Client's phone: ".$this->project->user->phone)
-                    ->line("Project: ".$this->project->description)
-                    ->action('Claim your company', $this->link)
-                    ->line('If you want to attract more clients, claim your company profile and increase your visibility.');
+                    ->subject('You’ve received a new client lead - contact now - SVNetwork')
+                    ->view('mail.company.matches-company-ai', [
+                        'project' => $this->project,
+                        'link' => $this->link,
+                        'notifiable' => $notifiable,
+                    ]);
     }
 
     /**

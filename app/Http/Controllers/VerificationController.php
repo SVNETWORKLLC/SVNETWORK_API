@@ -82,7 +82,16 @@ class VerificationController extends Controller
             abort(401);
         }
 
-        $userId = $request->input('user');
-        $user = User::findOrFail($userId);
+        $userId = $request->input('user_id');
+        $user = User::where('uuid', $userId)->firstOrFail();
+        $user->email_verified_at = now();
+        $user->password = bcrypt($request->input('password'));
+        $user->save();
+
+        $company = $user->companies->firstOrFail();
+        $company->is_claimed = true;
+        $company->save();
+
+        return new UserResource($user);
     }
 }

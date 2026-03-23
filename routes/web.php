@@ -36,6 +36,9 @@ use App\Notifications\UserCreatedNotification;
 Route::get('/', function () {
     return view('welcome');
 });
+Route::get('/auth/claim-company', function () {
+    return view('Not allowed');
+});
 Route::get('share/companies/{slug}', [ShareController::class, 'companies']);
 
 Route::get('register/verification', [VerificationController::class, 'verifyEmail'])->name('auth.verify')->middleware('signed');
@@ -65,11 +68,12 @@ Route::get('/notification', function () {
     // $project =  new ProjectResource($project);
 
     // $project->company_name = $nomatch->company_name;
-    $data =[
-        'user' => User::first(),
-        'quote' => new QuoteResource(Quote::find(24)),
-    ];
-    return view('mail.quotes.get', ['user' => $data['user'], 'quote' => $data['quote']]);
+$company = Company::first();
+$link = $company->generateClaimUrl();
+//remove prefix/api from link and return it
+$link = str_replace('/api', '', $link);
+return $link;
+    return view('mail.company.matches-company-ai', ['project' => Project::first(), 'notifiable' => User::first(), 'link' => 'https://www.thesvnetwork.com/admin/quotes/24']);
     // $user->link = 'localhost:8000/asdasdadsdadasd.com';
     // $match = Matches::all();
     // $service = Service::find(1);
@@ -91,3 +95,5 @@ Route::get('/notification', function () {
     // $company->link = $link;
     // $user->notify(new LicenceVerificationNotification($company));
 });
+
+

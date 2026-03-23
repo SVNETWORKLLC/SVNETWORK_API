@@ -348,7 +348,13 @@ class SearchController extends Controller
             try {
                 $user->link = config('app.app_url').'/user/companies/profile/leads/'.$project->id.'/'.$match->id;
                 $user->service = $serviceCustom;
-                // $user->notify(new MatchesCompanyAiNotification($project));
+                $link = null;
+
+                if($company->is_claimed == 0){
+                     $link = $company->generateClaimUrl();
+                }
+
+                $user->notify(new MatchesCompanyAiNotification($project, $link));
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log
                 Log::error('Error occurred: '.$e->getMessage(), [
