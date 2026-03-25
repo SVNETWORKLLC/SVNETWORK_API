@@ -14,10 +14,12 @@ class MatchesCompanyNotification extends Notification
     /**
      * Create a new notification instance.
      */
-    public $user;
-    public function __construct($user)
+    public $project;
+    public $link;
+    public function __construct($project, $link = null)
     {
-        $this->user = $user;
+        $this->project = $project;
+        $this->link = $link;
     }
 
     /**
@@ -37,9 +39,9 @@ class MatchesCompanyNotification extends Notification
     {
         return (new MailMessage)
                     ->greeting('Hello '. $notifiable->name)
-                    ->subject('You have a new client for '.$this->user->service->name)
-                    ->line("You have received a new match for the ".$this->user->service->name." service. To view the user's details, click here.")
-                    ->action('View contact details', url($this->user->link))
+                    ->subject('You have a new client for '.$this->project->service->name)
+                    ->line("You have received a new match for the ".$this->project->service->name." service. To view the user's details, click here.")
+                    ->action('View contact details', url($this->link))
                     ->line('Thank you for using our application!');
     }
 

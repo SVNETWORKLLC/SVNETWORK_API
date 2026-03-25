@@ -228,7 +228,6 @@ class SearchController extends Controller
         if (count($matches)) {
             $data = ['matches' => $matches, 'service' => $service];
             try {
-                $user->email = 'svnetwork503@gmail.com';
                 $user->notify(new MatchesUserNotification($data));
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log
@@ -237,6 +236,40 @@ class SearchController extends Controller
                     'trace' => $e->getTraceAsString(),
                 ]);
             }
+
+            foreach ($matches as $company) {
+                $company->projects()->attach($project_id);
+                $match = Matches::create([
+                    'email' => $user->email,
+                    'user_id' => $user->id,
+                    'company_id' => $company->id,
+                    'project_id' => $project_id,
+                    'service_id' => $service_id,
+                ]);
+
+                try {
+                    $user->link = config('app.app_url').'/user/companies/profile/leads/'.$project_id.'/'.$match->id;
+
+                    $link = null;
+
+                    if($company->is_claimed == 0){
+                        $link = $company->generateClaimUrl();
+                    }
+                    //notification to company admins
+                    $companyAdmins = $company->users;
+                    foreach ($companyAdmins as $admin) {
+                        $admin->notify(new MatchesCompanyAiNotification($project, $link));
+                    }
+                } catch (\Exception $e) {
+                    // Capturar el error y almacenarlo en el archivo de log
+                    Log::error('Error occurred: '.$e->getMessage(), [
+                        'exception' => $e,
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
+            }
+
+
         }
 
         return [
@@ -276,14 +309,20 @@ class SearchController extends Controller
             ]);
             $message = $response['data']['output']['message'] ?? null;
             $service_id = $response['data']['output']['service_id'] ?? null;
+            $service_name = $response['data']['output']['service_name'] ?? null;
             if ($service_id) {
                 $service = Service::find($service_id);
-            } else {
-                $service = null;
+            } else if($service_name) {
+
+                $service = Service::where('name', 'like', '%'.$service_name.'%')->first();
+            } else{
+                $service = Service::where('name','AI Search')->first();
             }
             foreach ($response['data']['output']['companies'] ?? [] as $company) {
                 $selectedCompany = Company::find($company['companyId']);
-
+                if(!$selectedCompany){
+                    continue;
+                }
                 array_push($matches, new SearchCompanyResource($selectedCompany));
             }
         } catch (\Exception $e) {
@@ -329,12 +368,10 @@ class SearchController extends Controller
 
             return $nomatch;
         }
-        $serviceCustom = Service::updateOrCreate([
-            'name' => $service ? $service->name : 'AI Search',
-        ], [
-            'description' => $service ? $service->description : 'Service found by AI',
-            'price' => 0,
-        ]);
+        if(!$service){
+            $service = Service::where('name','AI Search')->first();
+        }
+
 
         foreach ($matches as $company) {
             $company->projects()->attach($project->id);
@@ -343,19 +380,22 @@ class SearchController extends Controller
                 'user_id' => $user->id,
                 'company_id' => $company->id,
                 'project_id' => $project->id,
-                'service_id' => $serviceCustom->id,
+                'service_id' => $service->id,
             ]);
 
             try {
                 $user->link = config('app.app_url').'/user/companies/profile/leads/'.$project->id.'/'.$match->id;
-                $user->service = $serviceCustom;
+
                 $link = null;
 
                 if($company->is_claimed == 0){
                      $link = $company->generateClaimUrl();
                 }
-                $user->email = 'svnetwork503@gmail.com';
-                $user->notify(new MatchesCompanyAiNotification($project, $link));
+                //notification to company admins
+                 $companyAdmins = $company->users;
+                 foreach ($companyAdmins as $admin) {
+                     $admin->notify(new MatchesCompanyAiNotification($project, $link));
+                 }
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log
                 Log::error('Error occurred: '.$e->getMessage(), [
@@ -365,6 +405,19 @@ class SearchController extends Controller
             }
         }
 
+        //notification to user
+           if (count($matches) > 0) {
+            try {
+                $user->notify(new MatchesUserNotification(['matches' => $matches, 'service' => $service]));
+            } catch (\Exception $e) {
+                // Capturar el error y almacenarlo en el archivo de log
+                Log::error('Error occurred: '.$e->getMessage(), [
+                    'exception' => $e,
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
+        $matchesValues = collect($matches)->values();
         return [
             'zipcode' => [
                 'location' => $zipcode->location,
@@ -372,7 +425,7 @@ class SearchController extends Controller
                 'zipcode' => $zipcode->zipcode,
             ],
             'message' => $message ?? 'We found '.count($matches).' companies that match the requested service.',
-            'companies' => collect($matches)->values(),
+            'companies' => $matchesValues,
         ];
     }
 
