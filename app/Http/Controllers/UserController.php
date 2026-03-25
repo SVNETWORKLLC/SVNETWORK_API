@@ -62,9 +62,13 @@ class UserController extends Controller
 
         $company = $user->companies->first();
 
-        $company->services = $company->services->map(function ($service) {
+        if (!$company) {
+            return abort(404, 'Company not found');
+        }
+
+        $company->services = $company->services->map(function ($service) use ($company) {
             $service->states = $service->companyServiceState
-                ->where('company_id', auth()->user()->companies->first()->id)
+                ->where('company_id', $company->id)
                 ->map(function ($state) {
                     return $state->state;
                 })
@@ -73,11 +77,7 @@ class UserController extends Controller
         });
 
 
-        if ($company) {
-            return new UserCompanyResource($company);
-        } else {
-            return abort(404, 'Company not found');
-        }
+        return new UserCompanyResource($company);
     }
     public function update(Request $request)
     {
