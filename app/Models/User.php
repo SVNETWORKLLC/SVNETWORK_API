@@ -167,6 +167,8 @@ class User extends Authenticatable
             'zip_code' => $request->zip_code
         ]);
 
+        $this->companies()->syncWithoutDetaching($company->id);
+
         try {
             $data = [
                 'firstname' => $this->name,
@@ -227,7 +229,6 @@ class User extends Authenticatable
 
         $company->save();
         //Add company to user
-        $this->companies()->syncWithoutDetaching($company->id);
         $company->createCompanyNotificationToAdmin();
 
         $company->updateRagN8n();
