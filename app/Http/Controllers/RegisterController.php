@@ -103,7 +103,6 @@ class RegisterController extends Controller
             'password' => 'required|min:6'
         ]);
 
-
         $params = [
             'name' => $request->name,
             'surname' => $request->surname,
@@ -121,6 +120,8 @@ class RegisterController extends Controller
                 'user' => $user->id
             ],
         );
+        //Add Company to user
+        $user->addCompany($request);
 
         //Remplazamos la url de la api por la url de la app
         $api_url = config('app.api_url');

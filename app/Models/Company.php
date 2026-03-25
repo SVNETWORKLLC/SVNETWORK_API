@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\CompanyCreatedNotification;
 use App\Notifications\MatchesCompanyAiNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -202,6 +203,16 @@ class Company extends Model
             ]);
         }catch(\Exception $e){
             \Log::error('Error sending company data to n8n: '.$e->getMessage());
+        }
+    }
+
+    public function createCompanyNotificationToAdmin()
+    {
+        $admins = User::where('is_admin', 1)->get();
+        $link = config('app.app_url') . '/admin/companies';
+        $this->link = $link;
+        foreach ($admins as $user) {
+            $user->notify(new CompanyCreatedNotification($this));
         }
     }
 }

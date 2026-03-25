@@ -3,6 +3,10 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use App\Http\Resources\CompanyResource;
+use App\Notifications\CompanyCreatedNotification;
+use Exception;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -149,6 +153,86 @@ class User extends Authenticatable
         } else {
             return null;
         }
+    }
+
+    public function addCompany($request){
+
+        $company = Company::create([
+            'name' => $request->company_name,
+            'email' => $this->email,
+            'description' => $request->description,
+            'phone' => $request->phone,
+            'address_line1' => $request->address_line1,
+            'city' => $request->city,
+            'zip_code' => $request->zip_code
+        ]);
+
+        try {
+            $data = [
+                'firstname' => $this->name,
+                'lastname' => $this->surname,
+                'email' => $this->email,
+                'company' => $request->company_name,
+                'phone' => $request->phone,
+                'country' => $request->country,
+                'city' => $request->city,
+                'state' => $request->state['name_en'],
+                'zipcode' => $request->zip_code,
+                'tags' => 'company'
+            ];
+            Mautic::createContact($data);
+        } catch (Exception $e) {
+            return $e;
+        }
+        if ($request->filled('state')) {
+            $company->state_id = $request->state["id"];
+        }
+
+        if ($request->filled('services')) {
+            foreach ($request->services as $key => $service) {
+                $company->services()->syncWithoutDetaching($service["id"]);
+            }
+        }
+        if ($request->filled('categories')) {
+            foreach ($request->categories as $key => $category) {
+                $company->categories()->syncWithoutDetaching($category["id"]);
+            }
+        }
+        if ($request->filled('phone_2')) {
+            $company->phone_2 = $request->phone_2;
+        }
+        if ($request->filled('phone')) {
+            $company->phone = $request->phone;
+        }
+
+        if ($request->filled('address_line2')) {
+            $company->address_line2 = $request->address_line2;
+        }
+
+        if ($request->filled('social_facebook')) {
+            $company->social_facebook = $request->social_facebook;
+        }
+
+        if ($request->filled('social_x')) {
+            $company->social_x = $request->social_x;
+        }
+
+        if ($request->filled('social_youtube')) {
+            $company->social_youtube = $request->social_youtube;
+        }
+
+        if ($request->filled('video_url')) {
+            $company->video_url = $request->video_url;
+        }
+
+        $company->save();
+        //Add company to user
+        $this->companies()->syncWithoutDetaching($company->id);
+        $company->createCompanyNotificationToAdmin();
+
+        $company->updateRagN8n();
+
+        return new CompanyResource($company);
     }
 
 }
