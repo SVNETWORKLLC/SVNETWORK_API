@@ -61,7 +61,7 @@ class UserController extends Controller
         $user = auth()->user();
 
         $company = $user->companies->first();
-        if($company->services){
+        if($company?->services){
             $company->services = $company->services->map(function ($service) {
                 $service->states = $service->companyServiceState
                     ->where('company_id', auth()->user()->companies->first()->id)
