@@ -61,17 +61,17 @@ class UserController extends Controller
         $user = auth()->user();
 
         $company = $user->companies->first();
-        if($company?->services){
-            $company->services = $company->services->map(function ($service) {
-                $service->states = $service->companyServiceState
-                    ->where('company_id', auth()->user()->companies->first()->id)
-                    ->map(function ($state) {
-                        return $state->state;
-                    })
-                    ->sortBy('name_en'); // Ordenar por el atributo 'name'
-                return $service;
-            });
-        }
+
+        $company->services = $company->services->map(function ($service) {
+            $service->states = $service->companyServiceState
+                ->where('company_id', auth()->user()->companies->first()->id)
+                ->map(function ($state) {
+                    return $state->state;
+                })
+                ->sortBy('name_en'); // Ordenar por el atributo 'name'
+            return $service;
+        });
+
 
         if ($company) {
             return new UserCompanyResource($company);
