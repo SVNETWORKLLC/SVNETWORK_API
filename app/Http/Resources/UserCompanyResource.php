@@ -43,10 +43,10 @@ class UserCompanyResource extends JsonResource
             "logo_url" => $this->logo_url,
             "cover_url" => $this->cover_url,
             "reviews" => ReviewResource::collection($this->reviews),
-            "services" =>  CompanyServiceListResource::collection($this->services),
-            'projects' => CompanyProjectsResource::collection($this->projects),
-            'leads' => LeadResource::collection($this->leads),
-            'quotes' => QuoteResource::collection($this->quotes),
+            "services" =>  CompanyServiceListResource::collection($this->services ?? []),
+            'projects' => CompanyProjectsResource::collection($this->projects ?? []),
+            'leads' => LeadResource::collection($this->leads ?? []),
+            'quotes' => QuoteResource::collection($this->quotes ?? []),
             'date' => $this->created_at->format('m/d/Y h:i A'),
         ];
     }
