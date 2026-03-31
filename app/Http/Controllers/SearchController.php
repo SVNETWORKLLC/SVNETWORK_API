@@ -58,12 +58,13 @@ class SearchController extends Controller
         }
 
         $zipcode = null;
-        if ($payload->zipcode_id) {
-            $zipcode = Zipcode::find($payload->zipcode_id);
-        }
-        if ($payload->zipcode) {
+          if ($payload->zipcode) {
             $zipcode = Zipcode::where('zipcode', $payload->zipcode)->first();
         }
+        elseif ($payload->zipcode_id) {
+            $zipcode = Zipcode::find($payload->zipcode_id);
+        }
+
 
         $title = ($service ? $service->name : 'Service').' in '.$zipcode->location.', '.$zipcode->state.' '.$zipcode->zipcode;
         $project = $user->projects()->create([
