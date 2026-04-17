@@ -110,6 +110,7 @@ class SearchController extends Controller
 
     public function search(Request $request)
     {
+        $maxMatches = 3;
         $request->validate(([
             'zipcode' => 'required',
             'service_id' => 'required',
@@ -135,23 +136,23 @@ class SearchController extends Controller
         // Companies conditions
         // 1.- Non users repeated matches
         $today = Carbon::today();
-        $repeatedServiceMatches = Matches::where('service_id', $service_id)->where('email', $user->email)->whereDate('created_at', $today)->get();
+        //$repeatedServiceMatches = Matches::where('service_id', $service_id)->where('email', $user->email)->whereDate('created_at', $today)->get();
 
-        if ($repeatedServiceMatches->count() > 0) {
-            $companiesRepeated = $repeatedServiceMatches->map(function ($match) {
-                return $match->company;
-            });
+        // if ($repeatedServiceMatches->count() > 0) {
+        //     $companiesRepeated = $repeatedServiceMatches->map(function ($match) {
+        //         return $match->company;
+        //     });
 
-            return [
-                'zipcode' => [
-                    'location' => $zipcode->location,
-                    'state' => $zipcode->state,
-                    'zipcode' => $zipcode->zipcode,
-                ],
-                'message' => 'We found '.$repeatedServiceMatches->count().' companies that match the requested '.$service->name.' service.',
-                'companies' => SearchCompanyResource::collection($companiesRepeated)->values(),
-            ];
-        }
+        //     return [
+        //         'zipcode' => [
+        //             'location' => $zipcode->location,
+        //             'state' => $zipcode->state,
+        //             'zipcode' => $zipcode->zipcode,
+        //         ],
+        //         'message' => 'We found '.$repeatedServiceMatches->count().' companies that match the requested '.$service->name.' service.',
+        //         'companies' => SearchCompanyResource::collection($companiesRepeated)->values(),
+        //     ];
+        // }
 
         // 2.- companies where service is paused
         // 3.-Companies without payment method
@@ -161,84 +162,99 @@ class SearchController extends Controller
 
         $matches = [];
         // implemnetar n8nservice
-        $category = $service->category ? $service->category->name : 'no category';
-        $message = 'Search company for service '.$service->name.' or Category: '.$category.' and zipcode '.$zipcode->zipcode. " Location: ".$zipcode->location . ", State: ".$zipcode->state. ",Region: ".$zipcode->region .". ";
-        $message .= "Project description: ".$project->description.". ";
-        foreach ($project->answers as $key => $answer) {
-                $message .= "Question ".($key + 1)." : ".$answer->question?->text . " Answer: " . $answer->text . ". ";
-        }
-        try {
-            $n8nService = new \App\Services\N8nService;
-            $response = $n8nService->send([
-                'text' => $message ?? '',
-                'user_id' => $user->uuid,
-            ]);
-            $message = $response['data']['output']['message'] ?? null;
+        $category = $service->category;
 
-            foreach ($response['data']['output']['companies'] ?? [] as $company) {
-                $selectedCompany = Company::find($company['companyId']);
+         //Match actions
+        $zipcodesRegion = Zipcode::where('region', $zipcode->region)->where('state_iso', $zipcode->state_iso)->pluck('id');
+        $zipcodesState = Zipcode::where('state_iso', $zipcode->state_iso)->pluck('id');
+        $matches = collect();
+        if ($service) {
+            $companies1 = $service->companyServiceZip
+            ->where('zipcode_id', $zipcode->id);
+            //Agrega un atributo order para las companies1 que se encuentren
+            $companies1->each(function ($company) {
+                $company->order = 1;
+            });
+            $matches = $matches->merge($companies1);
+            if (count($matches) <= 3) {
 
-                array_push($matches, new SearchCompanyResource($selectedCompany));
+                $companies2 = $service->companyServiceZip
+                    ->whereIn('zipcode_id', $zipcodesRegion)
+                    ->whereNotIn('zipcode_id', $zipcodesState);
+
+                $companies2->each(function ($company) {
+                $company->order = 2;
+            });
+
+                $matches = $matches->merge($companies2);
             }
-            // $matches = collect($matches)->filter(function ($company) use ($companiesNotVerified, $companiesServicePause, $companiesWithoutPaymentMethod, $companiesDefaults) {
-            //     return
-            //         in_array($company->id, $companiesServicePause);
-            // })->values();
+            if (count($matches) <= 3) {
+                $companies3 = $service->companyServiceZip
+                    ->whereIn('zipcode_id', $zipcodesState);
+                $companies3->each(function ($company) {
+                $company->order = 3;
+            });
+                $matches = $matches->merge($companies3);
+            }
 
-        } catch (\Exception $e) {
-            Log::error('Error N8N Service: '.$e->getMessage(), [
-                'exception' => $e,
-                'trace' => $e->getTraceAsString(),
-            ]);
+            $matches = $matches->unique('company_id');
+            //Add categoy services
+              if($category){
+                $services = Service::where('category_id', $category->id)->where('id', '!=', $service->id)->get();
+                foreach ($services as $serviceItem) {
+                    $companies1 = $serviceItem->companyServiceZip
+                    ->where('zipcode_id', $zipcode->id);
+                    //Agrega un atributo order para las companies1 que se encuentren
+                    $companies1->each(function ($company) {
+                        $company->order = 1;
+                    });
+                    $matches = $matches->merge($companies1);
+                    if (count($matches) <= 3) {
 
-        }
-        // No matches actions
-        if (count($matches) == 0) {
+                        $companies2 = $serviceItem->companyServiceZip
+                            ->whereIn('zipcode_id', $zipcodesRegion)
+                            ->whereNotIn('zipcode_id', $zipcodesState);
 
-            // if ($companiesMatchIds) {
-            //     abort(422, 'No matches');
-            // }
-            $nomatch = NoMatches::create([
-                'email' => $user->email,
-                'user_id' => $user->id,
-                'project_id' => $project_id,
-                'service_id' => $service_id,
-            ]);
-            $data = [
-                'user' => $user,
-                'service' => $service,
-                'zipcode' => $zipcode,
-            ];
-            foreach ($admins as $key => $admin) {
-                try {
-                    $admin->notify(new NoMatchesAdminNotification($data));
-                } catch (\Exception $e) {
-                    // Capturar el error y almacenarlo en el archivo de log
-                    Log::error('Error occurred: '.$e->getMessage(), [
-                        'exception' => $e,
-                        'trace' => $e->getTraceAsString(),
-                    ]);
+                        $companies2->each(function ($company) {
+                        $company->order = 2;
+                    });
+
+                        $matches = $matches->merge($companies2);
+                    }
+                    if (count($matches) <= 3) {
+                        $companies3 = $serviceItem->companyServiceZip
+                            ->whereIn('zipcode_id', $zipcodesState);
+                        $companies3->each(function ($company) {
+                        $company->order = 3;
+                    });
+                        $matches = $matches->merge($companies3);
+                    }
                 }
+
             }
 
-            return $nomatch;
         }
+
 
         $matches_array = [];
 
         if (count($matches)) {
-            $data = ['matches' => $matches, 'service' => $service];
-            try {
-                $user->notify(new MatchesUserNotification($data));
-            } catch (\Exception $e) {
-                // Capturar el error y almacenarlo en el archivo de log
-                Log::error('Error occurred: '.$e->getMessage(), [
-                    'exception' => $e,
-                    'trace' => $e->getTraceAsString(),
-                ]);
+            foreach ($matches as $match) {
+                $companyData = Company::find($match->company_id);
+                if ($companyData) {
+                    $matches_array[] = new SearchCompanyResource($companyData);
+                }
             }
 
-            foreach ($matches as $company) {
+            //Order matches by verified first y por orders del 1 al 3
+            $sortedMatches = collect($matches_array)->sortByDesc(function ($match) {
+                return $match->verified * 10 + (3 - $match->order);
+            })->values();
+
+            //Get top 3 matches randomly
+            $sortedMatches = $sortedMatches->shuffle()->take(3);
+
+            foreach ($sortedMatches as $company) {
                 $company->projects()->attach($project_id);
                 $match = Matches::create([
                     'email' => $user->email,
@@ -273,14 +289,29 @@ class SearchController extends Controller
 
         }
 
+        //notification to user
+           if (count($sortedMatches) > 0) {
+            try {
+                $user->notify(new MatchesUserNotification(['matches' => $sortedMatches, 'service' => $service]));
+            } catch (\Exception $e) {
+                // Capturar el error y almacenarlo en el archivo de log
+                Log::error('Error occurred: '.$e->getMessage(), [
+                    'exception' => $e,
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        }
+
+          $matchesValues = collect($sortedMatches)->values();
+
         return [
             'zipcode' => [
                 'location' => $zipcode->location,
                 'state' => $zipcode->state,
                 'zipcode' => $zipcode->zipcode,
             ],
-            'message' => $message ?? 'We found '.count($matches).' companies that match the requested service.',
-            'companies' => $matches,
+            'message' => 'We found '.count($matches_array).' companies that match the requested service in '. $zipcode->zipcode. ' '. $zipcode->location.', '.$zipcode->state.'.',
+            'companies' => $matchesValues,
         ];
     }
 
@@ -299,33 +330,14 @@ class SearchController extends Controller
         $zipcode = Zipcode::where('zipcode', $request->zipcode)->first();
         $project = Project::find($request->project_id);
 
-        $searchText = $request->text." My default location is:". $zipcode->location.', State:'.$zipcode->state.' ,Zipcode:'.$zipcode->zipcode. " Region is: ".$zipcode->region. " State ISO: ".$zipcode->state_iso;
+        $searchText = $request->text;
         $matches = [];
         // implemnetar n8nservice
         try {
             $n8nService = new \App\Services\N8nService;
             $response = $n8nService->send([
-                'text' => $searchText,
-                'user_id' => $user->uuid,
+                'text' => $searchText
             ]);
-            $message = $response['data']['output']['message'] ?? null;
-            $service_id = $response['data']['output']['service_id'] ?? null;
-            $service_name = $response['data']['output']['service_name'] ?? null;
-            if ($service_id) {
-                $service = Service::find($service_id);
-            } else if($service_name) {
-
-                $service = Service::where('name', 'like', '%'.$service_name.'%')->first();
-            } else{
-                $service = Service::where('name','AI Search')->first();
-            }
-            foreach ($response['data']['output']['companies'] ?? [] as $company) {
-                $selectedCompany = Company::find($company['companyId']);
-                if(!$selectedCompany){
-                    continue;
-                }
-                array_push($matches, new SearchCompanyResource($selectedCompany));
-            }
         } catch (\Exception $e) {
             Log::error('Error N8N Service: '.$e->getMessage(), [
                 'exception' => $e,
@@ -333,6 +345,49 @@ class SearchController extends Controller
             ]);
 
         }
+
+        $serviceIds = $response['data']['output'] ?? null;
+        //No matches actions
+        if (count($serviceIds) == 0) {
+            return [
+                'zipcode' => [
+                    'location' => $zipcode->location,
+                    'state' => $zipcode->state,
+                    'zipcode' => $zipcode->zipcode,
+                ],
+                'message' => 'We found 0 companies that match the requested service.',
+                'companies' => [],
+            ];
+        }
+
+
+
+        //Match actions
+        $zipcodesRegion = Zipcode::where('region', $zipcode->region)->where('state_iso', $zipcode->state_iso)->pluck('id');
+        $zipcodesState = Zipcode::where('state_iso', $zipcode->state_iso)->pluck('id');
+        $matches = collect();
+            foreach ($serviceIds as $serviceId) {
+                $service = Service::find($serviceId);
+                if ($service) {
+                    $companies1 = $service->companyServiceZip
+                        ->where('zipcode_id', $zipcode->id);
+                    $matches = $matches->merge($companies1);
+                    if (count($matches) <= 3) {
+
+                        $companies2 = $service->companyServiceZip
+                            ->whereIn('zipcode_id', $zipcodesRegion)
+                            ->whereNotIn('zipcode_id', $zipcodesState);
+
+                        $matches = $matches->merge($companies2);
+                    }
+                    if (count($matches) <= 3) {
+                        $companies3 = $service->companyServiceZip
+                            ->whereIn('zipcode_id', $zipcodesState);
+                        $matches = $matches->merge($companies3);
+                    }
+            }
+        }
+
         $admins = User::where('is_admin', 1)->get();
 
         if (count($matches) == 0) {
@@ -369,17 +424,34 @@ class SearchController extends Controller
 
             return $nomatch;
         }
+
         if(!$service){
             $service = Service::where('name','AI Search')->first();
         }
 
+        //convert matches to company collection
+        // Remove company_id duplicates
+        $matches = $matches->unique('company_id');
+        foreach ($matches as $match) {
+            $companyData = Company::find($match->company_id);
+            if ($companyData) {
+                $matches_array[] = new SearchCompanyResource($companyData);
+            }
+        }
 
-        foreach ($matches as $company) {
-            $company->projects()->attach($project->id);
+         //Order matches by verified first y por orders del 1 al 3
+            $sortedMatches = collect($matches_array)->sortByDesc(function ($match) {
+                return $match->verified * 10 + (3 - $match->order);
+            })->values();
+
+            //Get top 3 matches randomly
+            $sortedMatches = $sortedMatches->shuffle()->take(3);
+        foreach ($sortedMatches as $companyItem) {
+            $companyItem->projects()->attach($project->id);
             $match = Matches::create([
                 'email' => $user->email,
                 'user_id' => $user->id,
-                'company_id' => $company->id,
+                'company_id' => $companyItem->id,
                 'project_id' => $project->id,
                 'service_id' => $service->id,
             ]);
@@ -388,14 +460,16 @@ class SearchController extends Controller
                 $user->link = config('app.app_url').'/user/companies/profile/leads/'.$project->id.'/'.$match->id;
 
                 $link = null;
-
-                if($company->is_claimed == 0){
-                     $link = $company->generateClaimUrl();
+                $link2 = null;
+                if($companyItem->is_claimed == 0){
+                     $link = $companyItem->generateClaimUrl();
+                }else{
+                    $link2 = config('app.app_url').'/admin/dashboard';
                 }
                 //notification to company admins
-                 $companyAdmins = $company->users;
+                 $companyAdmins = $companyItem->users;
                  foreach ($companyAdmins as $admin) {
-                     $admin->notify(new MatchesCompanyAiNotification($project, $link));
+                     $admin->notify(new MatchesCompanyAiNotification($project, $link, $link2));
                  }
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log
@@ -407,9 +481,9 @@ class SearchController extends Controller
         }
 
         //notification to user
-           if (count($matches) > 0) {
+           if (count($sortedMatches) > 0) {
             try {
-                $user->notify(new MatchesUserNotification(['matches' => $matches, 'service' => $service]));
+                $user->notify(new MatchesUserNotification(['matches' => $sortedMatches, 'service' => $service]));
             } catch (\Exception $e) {
                 // Capturar el error y almacenarlo en el archivo de log
                 Log::error('Error occurred: '.$e->getMessage(), [
@@ -418,14 +492,14 @@ class SearchController extends Controller
                 ]);
             }
         }
-        $matchesValues = collect($matches)->values();
+        $matchesValues = collect($sortedMatches)->values();
         return [
             'zipcode' => [
                 'location' => $zipcode->location,
                 'state' => $zipcode->state,
                 'zipcode' => $zipcode->zipcode,
             ],
-            'message' => $message ?? 'We found '.count($matches).' companies that match the requested service.',
+            'message' => 'We found '.count($sortedMatches).' companies that match the requested service in '. $zipcode->zipcode. ' '. $zipcode->location.', '.$zipcode->state.'.',
             'companies' => $matchesValues,
         ];
     }

@@ -258,11 +258,12 @@
                 If you cannot click the button, copy this URL:<br>
                 {{ $link }}
             </div>
-            @else
+            @endif
+            @if ($link2)
             <div>
                 Go to your dashboard to claim this company and view the match details.
                  <div class="button-wrapper">
-                <a href=" {{ config('app.web_url').'/admin/dashboard' }}" class="cta-button">Claim Business Profile</a>
+                <a href="{{ $link2 }}" class="cta-button">Go to Dashboard</a>
             </div>
             </div>
             @endif

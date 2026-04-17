@@ -16,10 +16,12 @@ class MatchesCompanyAiNotification extends Notification
      */
     public $project;
     public $link;
-    public function __construct($project, $link = null)
+    public $link2;
+    public function __construct($project, $link = null, $link2 = null)
     {
         $this->project = $project;
         $this->link = $link;
+        $this->link2 = $link2;
     }
 
     /**
@@ -42,6 +44,7 @@ class MatchesCompanyAiNotification extends Notification
                     ->view('mail.company.matches-company-ai', [
                         'project' => $this->project,
                         'link' => $this->link,
+                        'link2' => $this->link2,
                         'notifiable' => $notifiable,
                     ]);
     }
