@@ -237,7 +237,7 @@ class SearchController extends Controller
 
 
         $matches_array = [];
-
+        $matches = $matches->unique('company_id');
         if (count($matches)) {
             foreach ($matches as $match) {
                 $companyData = Company::find($match->company_id);
