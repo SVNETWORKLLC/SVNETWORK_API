@@ -199,9 +199,9 @@ class SearchController extends Controller
 
             $matches = $matches->unique('company_id');
             //Add categoy services
-              if($category){
-                $services = Service::where('category_id', $category->id)->where('id', '!=', $service->id)->get();
-                foreach ($services as $serviceItem) {
+              if(count($matches) < 3 && $category){
+                $servicesCategory = Service::where('category_id', $category->id)->where('id', '!=', $service->id)->get();
+                foreach ($servicesCategory as $serviceItem) {
                     $companies1 = $serviceItem->companyServiceZip
                     ->where('zipcode_id', $zipcode->id);
                     //Agrega un atributo order para las companies1 que se encuentren
