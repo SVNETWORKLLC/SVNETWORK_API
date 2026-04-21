@@ -481,13 +481,16 @@ class SearchController extends Controller
             }
         }
 
-        //Order matches by verified first y por orders del 1 al 3
-        $sortedMatches = collect($matches_array)->sortByDesc(function ($match) {
-            return $match->verified * 10 + (3 - $match->order);
-            })->values();
+        //Order matches by verified first: shuffle each group separately, then merge
+        $allMatches = collect($matches_array);
 
-            // //Get top 3 matches randomly
-            $sortedMatches = $sortedMatches->shuffle()->take(3);
+        $verifiedMatches   = $allMatches->filter(fn($m) => (int) $m->resource->verified === 1)->shuffle()->values();
+        $unverifiedMatches = $allMatches->filter(fn($m) => (int) $m->resource->verified !== 1)->shuffle()->values();
+
+        $sortedMatches = $verifiedMatches->merge($unverifiedMatches)->take(3);
+
+
+
         foreach ($sortedMatches as $companyItem) {
             $companyItem->projects()->attach($project->id);
             $match = Matches::create([
