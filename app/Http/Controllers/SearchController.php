@@ -119,6 +119,10 @@ class SearchController extends Controller
         ]));
 
         $zipcode = $request->zipcode;
+
+
+        $zipcode = Zipcode::where('zipcode', $zipcode)->first();
+
         $service_id = $request->service_id;
         $project_id = $request->project_id;
         $project = Project::find($project_id);
@@ -132,10 +136,10 @@ class SearchController extends Controller
         if (auth()->user()) {
             $user = auth()->user();
         }
-        $zipcode = Zipcode::where('zipcode', $zipcode)->first();
+
+
         // Companies conditions
         // 1.- Non users repeated matches
-        $today = Carbon::today();
         //$repeatedServiceMatches = Matches::where('service_id', $service_id)->where('email', $user->email)->whereDate('created_at', $today)->get();
 
         // if ($repeatedServiceMatches->count() > 0) {
@@ -165,8 +169,11 @@ class SearchController extends Controller
         $category = $service->category;
 
          //Match actions
+
         $zipcodesRegion = Zipcode::where('region', $zipcode->region)->where('state_iso', $zipcode->state_iso)->pluck('id');
         $zipcodesState = Zipcode::where('state_iso', $zipcode->state_iso)->pluck('id');
+
+
         $matches = collect();
         if ($service) {
             $companies1 = $service->companyServiceZip
@@ -209,6 +216,7 @@ class SearchController extends Controller
                         $company->order = 1;
                     });
                     $matches = $matches->merge($companies1);
+                    $matches = $matches->unique('company_id');
                     if (count($matches) <= 3) {
 
                         $companies2 = $serviceItem->companyServiceZip
@@ -220,6 +228,7 @@ class SearchController extends Controller
                     });
 
                         $matches = $matches->merge($companies2);
+                        $matches = $matches->unique('company_id');
                     }
                     if (count($matches) <= 3) {
                         $companies3 = $serviceItem->companyServiceZip
@@ -228,6 +237,7 @@ class SearchController extends Controller
                         $company->order = 3;
                     });
                         $matches = $matches->merge($companies3);
+                        $matches = $matches->unique('company_id');
                     }
                 }
 
@@ -346,7 +356,8 @@ class SearchController extends Controller
 
         }
 
-        $serviceIds = $response['data']['output'] ?? null;
+        $serviceIds = $response['data']['output']['service_ids'] ?? null;
+        $categoryIds = $response['data']['output']['category_ids'] ?? null;
         //No matches actions
         if (count($serviceIds) == 0) {
             return [
@@ -366,25 +377,56 @@ class SearchController extends Controller
         $zipcodesRegion = Zipcode::where('region', $zipcode->region)->where('state_iso', $zipcode->state_iso)->pluck('id');
         $zipcodesState = Zipcode::where('state_iso', $zipcode->state_iso)->pluck('id');
         $matches = collect();
-            foreach ($serviceIds as $serviceId) {
+        foreach ($serviceIds as $serviceId) {
+            $service = Service::find($serviceId);
+            if ($service) {
+                $companies1 = $service->companyServiceZip
+                    ->where('zipcode_id', $zipcode->id);
+                $matches = $matches->merge($companies1);
+                $matches = $matches->unique('company_id');
+                if (count($matches) < 3) {
+
+                    $companies2 = $service->companyServiceZip
+                        ->whereIn('zipcode_id', $zipcodesRegion)
+                        ->whereNotIn('zipcode_id', $zipcodesState);
+
+                    $matches = $matches->merge($companies2);
+                    $matches = $matches->unique('company_id');
+                }
+                if (count($matches) < 3) {
+                    $companies3 = $service->companyServiceZip
+                        ->whereIn('zipcode_id', $zipcodesState);
+                    $matches = $matches->merge($companies3);
+                    $matches = $matches->unique('company_id');
+                }
+            }
+        }
+
+        $categoryServiceIds = Service::whereIn('category_id', $categoryIds)->pluck('id')->toArray();
+        if(count($matches) < 3){
+            foreach ($categoryServiceIds as $serviceId) {
                 $service = Service::find($serviceId);
                 if ($service) {
                     $companies1 = $service->companyServiceZip
                         ->where('zipcode_id', $zipcode->id);
                     $matches = $matches->merge($companies1);
-                    if (count($matches) <= 3) {
+                    $matches = $matches->unique('company_id');
+                    if (count($matches) < 3) {
 
                         $companies2 = $service->companyServiceZip
                             ->whereIn('zipcode_id', $zipcodesRegion)
                             ->whereNotIn('zipcode_id', $zipcodesState);
 
                         $matches = $matches->merge($companies2);
+                        $matches = $matches->unique('company_id');
                     }
-                    if (count($matches) <= 3) {
+                    if (count($matches) < 3) {
                         $companies3 = $service->companyServiceZip
                             ->whereIn('zipcode_id', $zipcodesState);
                         $matches = $matches->merge($companies3);
+                        $matches = $matches->unique('company_id');
                     }
+                }
             }
         }
 
@@ -431,7 +473,7 @@ class SearchController extends Controller
 
         //convert matches to company collection
         // Remove company_id duplicates
-        $matches = $matches->unique('company_id');
+
         foreach ($matches as $match) {
             $companyData = Company::find($match->company_id);
             if ($companyData) {
@@ -439,13 +481,13 @@ class SearchController extends Controller
             }
         }
 
-         //Order matches by verified first y por orders del 1 al 3
-            $sortedMatches = collect($matches_array)->sortByDesc(function ($match) {
-                return $match->verified * 10 + (3 - $match->order);
+        //Order matches by verified first y por orders del 1 al 3
+        $sortedMatches = collect($matches_array)->sortByDesc(function ($match) {
+            return $match->verified * 10 + (3 - $match->order);
             })->values();
 
-            //Get top 3 matches randomly
-            $sortedMatches = $sortedMatches->shuffle()->take(3);
+            // //Get top 3 matches randomly
+            // $sortedMatches = $sortedMatches->shuffle()->take(3);
         foreach ($sortedMatches as $companyItem) {
             $companyItem->projects()->attach($project->id);
             $match = Matches::create([
