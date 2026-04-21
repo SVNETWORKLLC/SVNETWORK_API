@@ -21,6 +21,7 @@ class SearchCompanyResource extends JsonResource
                 'reviews' => $this->reviews?->count() ?? 0,
                 'rating' => $this->review_rate,
                 'company_city' => $this->city,
+                'company_state' => $this->state,
                 'company_logo' => $this->logo_url,
                 'verified' => $this->verified,
             ];

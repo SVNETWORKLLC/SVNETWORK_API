@@ -487,7 +487,7 @@ class SearchController extends Controller
             })->values();
 
             // //Get top 3 matches randomly
-            // $sortedMatches = $sortedMatches->shuffle()->take(3);
+            $sortedMatches = $sortedMatches->shuffle()->take(3);
         foreach ($sortedMatches as $companyItem) {
             $companyItem->projects()->attach($project->id);
             $match = Matches::create([
