@@ -474,18 +474,26 @@ class SearchController extends Controller
         //convert matches to company collection
         // Remove company_id duplicates
 
+        $verifiedMatches = collect();
+        $unverifiedMatches = collect();
+
         foreach ($matches as $match) {
             $companyData = Company::find($match->company_id);
             if ($companyData) {
-                $matches_array[] = new SearchCompanyResource($companyData);
+                if($companyData->verified == 1){
+                   $verifiedMatches->push(new SearchCompanyResource($companyData));
+                }else{
+                    $unverifiedMatches->push(new SearchCompanyResource($companyData));
+                }
+
             }
         }
 
         //Order matches by verified first: shuffle each group separately, then merge
-        $allMatches = collect($matches_array);
 
-        $verifiedMatches   = $allMatches->filter(fn($m) => (int) $m->resource->verified === 1)->shuffle()->values();
-        $unverifiedMatches = $allMatches->filter(fn($m) => (int) $m->resource->verified !== 1)->shuffle()->values();
+
+        $verifiedMatches = $verifiedMatches->shuffle()->values();
+        $unverifiedMatches = $unverifiedMatches->shuffle()->values();
 
         $sortedMatches = $verifiedMatches->merge($unverifiedMatches)->take(3);
 
