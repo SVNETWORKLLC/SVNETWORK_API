@@ -348,24 +348,79 @@ class SearchController extends Controller
         $serviceIds = $response['data']['output']['service_ids'] ?? null;
         $categoryIds = $response['data']['output']['categories'] ?? null;
 
-        //No matches actions
-         $admins = User::where('is_admin', 1)->get();
-        if (count($serviceIds) == 0) {
-            $serviceCustom = Service::updateOrCreate([
+        if (count($zipcodesLocationIds) == 0) {
+            $zipcodesLocationIds = [$zipcode->id];
+        }
+
+        foreach ($serviceIds as $serviceId) {
+            $service = Service::find($serviceId);
+            if ($service && $service->category_id) {
+                $categoryIds[] = $service->category_id;
+            }
+        }
+        // remove duplicates
+        $categoryIds = array_unique(array_filter($categoryIds));
+
+        // get all services in those categories and merge into a unique service ids list
+        $categoryServiceIds = Service::whereIn('category_id', $categoryIds)->pluck('id')->toArray();
+        $serviceIds = array_values(array_unique(array_merge($serviceIds, $categoryServiceIds)));
+
+
+        $matches = collect();
+        $processedServiceIds = [];
+        $ids = implode(',', $zipcodesLocationIds);
+        foreach ($serviceIds as $serviceId) {
+            $service = Service::find($serviceId);
+            if ($service) {
+                $companies1 = $service->companyServiceZip()
+                ->whereIn('zipcode_id', $zipcodesLocationIds)
+                ->orderByRaw("FIELD(zipcode_id, $ids)")
+                ->get();
+
+                $matches = $matches->merge($companies1);
+                $matches = $matches->unique('company_id')->values();
+                $processedServiceIds[] = $service->id;
+            }
+        }
+
+        // $servicesCategory = Service::whereIn('category_id', $categoryIds)
+        //     ->whereNotIn('id', $processedServiceIds)
+        //     ->get();
+        // if ($matches->count() < 3 && count($servicesCategory) > 0) {
+        //     foreach ($servicesCategory as $serviceItem) {
+        //         $companies2 = $serviceItem->companyServiceZip()
+        //         ->whereIn('zipcode_id', $zipcodesLocationIds)
+        //         ->orderByRaw("FIELD(zipcode_id, $ids)")
+        //         ->get();
+
+        //         $matches2 = $matches2->merge($companies2);
+        //         $processedServiceIds[] = $service->id;
+        //     }
+        // }
+
+        $matches = $matches->unique('company_id')->values();
+
+        $admins = User::where('is_admin', 1)->get();
+        $sortedMatches = [];
+
+        if(count($matches) == 0){
+             $serviceCustom = Service::updateOrCreate([
                 'name' => 'AI Search',
             ], [
                 'description' => 'Service found by AI',
                 'price' => 0,
             ]);
+            $selectedSeervice = Service::find($serviceIds[0] ?? $serviceCustom->id);
+
             NoMatches::create([
                 'email' => $user->email,
                 'user_id' => $user->id,
                 'project_id' => $project->id,
-                'service_id' => $serviceCustom->id,
+                'service_id' => $selectedSeervice->id,
             ]);
             $data = [
                 'user' => $user,
-                'service' => $serviceCustom,
+                'service' => $selectedSeervice,
                 'description' => $project->description,
                 'zipcode' => $zipcode,
             ];
@@ -391,54 +446,6 @@ class SearchController extends Controller
             ];
         }
 
-        if (count($zipcodesLocationIds) == 0) {
-            $zipcodesLocationIds = [$zipcode->id];
-        }
-
-        $matches = collect();
-        $processedServiceIds = [];
-        $ids = implode(',', $zipcodesLocationIds);
-        foreach ($serviceIds as $serviceId) {
-            $service = Service::find($serviceId);
-            if ($service) {
-                $companies1 = $service->companyServiceZip()
-                ->whereIn('zipcode_id', $zipcodesLocationIds)
-                ->orderByRaw("FIELD(zipcode_id, $ids)")
-                ->get();
-
-                $matches = $matches->merge($companies1);
-                $processedServiceIds[] = $service->id;
-            }
-        }
-
-        foreach ($serviceIds as $serviceId) {
-            $service = Service::find($serviceId);
-            if ($service && $service->category_id) {
-                $categoryIds[] = $service->category_id;
-            }
-        }
-        //remove duplicates
-        $categoryIds = array_unique($categoryIds);
-
-        $servicesCategory = Service::whereIn('category_id', $categoryIds)
-            ->whereNotIn('id', $processedServiceIds)
-            ->get();
-        if ($matches->count() < 3 && count($servicesCategory) > 0) {
-            foreach ($servicesCategory as $serviceItem) {
-                $companies1 = $serviceItem->companyServiceZip()
-                ->whereIn('zipcode_id', $zipcodesLocationIds)
-                ->orderByRaw("FIELD(zipcode_id, $ids)")
-                ->get();
-
-                $matches = $matches->merge($companies1);
-                $processedServiceIds[] = $service->id;
-            }
-        }
-
-        $matches = $matches->unique('company_id')->values();
-
-        $admins = User::where('is_admin', 1)->get();
-
         if (count($matches)) {
             foreach ($matches as $match) {
                 $companyData = Company::find($match->company_id);
@@ -453,7 +460,7 @@ class SearchController extends Controller
             $unverifiedMatches = $sortedMatches->where('verified', 0)->values();
 
             $sortedMatches = $verifiedMatches->merge($unverifiedMatches)->values();
-            $sortedMatches = $sortedMatches->take(3);
+            // $sortedMatches = $sortedMatches->take(3);
             $service_id = $serviceIds[0];
             foreach ($sortedMatches as $company) {
                 $company->projects()->attach($project_id);
