@@ -325,7 +325,11 @@ class SearchController extends Controller
         $zipcode = Zipcode::where('zipcode', $request->zipcode)->first();
         $zipcodesLocation = self::getGeoZipcodes($zipcode->lon, $zipcode->lat, 50000);
         $zipcodesLocationIds = collect($zipcodesLocation)->pluck('idzipcode')->toArray();
-
+        return [
+            'zipcode'=>$zipcode,
+            'zipcodesLocation'=>$zipcodesLocation,
+            'zipcodesLocationIds'=>$zipcodesLocationIds
+        ];
         $service_id = $request->service_id;
         $project_id = $request->project_id;
         $project = Project::find($request->project_id);
@@ -359,6 +363,10 @@ class SearchController extends Controller
                 'message' => 'We found 0 companies that match the requested service.',
                 'companies' => [],
             ];
+        }
+
+        if (count($zipcodesLocationIds) == 0) {
+            $zipcodesLocationIds = [$zipcode->id];
         }
 
         $matches = collect();
