@@ -326,7 +326,7 @@ class SearchController extends Controller
         $zipcodesLocation = self::getGeoZipcodes($zipcode->lon, $zipcode->lat, 50000);
         $zipcodesLocationIds = collect($zipcodesLocation)->pluck('idzipcode')->toArray();
 
-        $service_id = $request->service_id;
+
         $project_id = $request->project_id;
         $project = Project::find($request->project_id);
         $searchText = $request->text;
@@ -349,7 +349,37 @@ class SearchController extends Controller
         $categoryIds = $response['data']['output']['categories'] ?? null;
 
         //No matches actions
+         $admins = User::where('is_admin', 1)->get();
         if (count($serviceIds) == 0) {
+            $serviceCustom = Service::updateOrCreate([
+                'name' => 'AI Search',
+            ], [
+                'description' => 'Service found by AI',
+                'price' => 0,
+            ]);
+            NoMatches::create([
+                'email' => $user->email,
+                'user_id' => $user->id,
+                'project_id' => $project->id,
+                'service_id' => $serviceCustom->id,
+            ]);
+            $data = [
+                'user' => $user,
+                'service' => $serviceCustom,
+                'description' => $project->description,
+                'zipcode' => $zipcode,
+            ];
+            foreach ($admins as $key => $admin) {
+                try {
+                    $admin->notify(new NoMatchesAdminNotification($data));
+                } catch (\Exception $e) {
+                    // Capturar el error y almacenarlo en el archivo de log
+                    Log::error('Error occurred: '.$e->getMessage(), [
+                        'exception' => $e,
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
+            }
             return [
                 'zipcode' => [
                     'location' => $zipcode->location,
@@ -424,7 +454,7 @@ class SearchController extends Controller
 
             $sortedMatches = $verifiedMatches->merge($unverifiedMatches)->values();
             $sortedMatches = $sortedMatches->take(3);
-
+            $service_id = $serviceIds[0];
             foreach ($sortedMatches as $company) {
                 $company->projects()->attach($project_id);
                 $match = Matches::create([
