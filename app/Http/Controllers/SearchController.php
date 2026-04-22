@@ -460,7 +460,7 @@ class SearchController extends Controller
             $unverifiedMatches = $sortedMatches->where('verified', 0)->values();
 
             $sortedMatches = $verifiedMatches->merge($unverifiedMatches)->values();
-            // $sortedMatches = $sortedMatches->take(3);
+            $sortedMatches = $sortedMatches->take(3);
             $service_id = $serviceIds[0];
             foreach ($sortedMatches as $company) {
                 $company->projects()->attach($project_id);
