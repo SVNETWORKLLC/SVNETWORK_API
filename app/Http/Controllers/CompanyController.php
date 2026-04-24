@@ -187,7 +187,8 @@ class CompanyController extends Controller
             'address_line1' => $request->address_line1,
             'city' => $request->city,
             'state' => $request->state_id,
-            'zip_code' => $request->zip_code
+            'zip_code' => $request->zip_code,
+            'is_claimed' => 1
         ]);
 
 
