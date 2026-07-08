@@ -22,8 +22,8 @@ class NoMatchesAdminNotification extends Notification
     {
         $this->data = $data;
         if(isset($data['service'])){
-            $this->title = 'No matches for '. $data['service']->name;
-            $this->body = 'No results found for the service '.$data['service']->name.' in the state of '. $data['zipcode']->state;
+            $this->title = 'No matches for '. $data['service']?->name;
+            $this->body = 'No results found for the service '.$data['service']?->name.' in the state of '. $data['zipcode']->state;
         } else {
             $this->title = 'No matches for custom search';
             $this->body = 'No results found for a custom search: '. $data['description'] .' in the state of '. $data['zipcode']->state;

@@ -22,7 +22,7 @@
             <h2 style="color: #333333;">Hi {{ $data->company_name }}.</h2>
             <p style="color: #555555;">
                 We’re reaching out with a unique opportunity! A customer in your area is looking for
-                <strong>{{ $data['service']->name }}</strong> services, and we believe your company might be the perfect fit.
+                <strong>{{ $data['service']?->name }}</strong> services, and we believe your company might be the perfect fit.
             </p>
             <p style="color: #555555;">
                 At this moment, we don’t have a registered company offering this service in this area in our database. However, we selected your business because we believe it could be a great fit for this client’s needs. The client reached out through <strong>SVNetwork</strong> seeking assistance in finding a company, which is why you are receiving this lead.

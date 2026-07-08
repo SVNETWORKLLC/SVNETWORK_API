@@ -576,7 +576,7 @@ class SearchController extends Controller
 
     public function noMatchesList()
     {
-        $noMatches = NoMatches::where('done', 0)->orderBy('created_at', 'desc')->get();
+        $noMatches = NoMatches::all()->sortByDesc('created_at');
 
         return NoMatchesResource::collection($noMatches);
     }
