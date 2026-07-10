@@ -36,7 +36,9 @@ class Company extends Model
         'cover_url',
         'licence',
         'insurance',
-        'is_claimed'
+        'is_claimed',
+        'state_id',
+        'slug'
     ];
     protected $dates = ['deleted_at'];
     protected static function boot()

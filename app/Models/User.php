@@ -165,6 +165,7 @@ class User extends Authenticatable
             'address_line1' => $request->address_line1,
             'city' => $request->city,
             'zip_code' => $request->zip_code,
+            'state_id' => $request->state['id'],
             'is_claimed' => 1
         ]);
 
@@ -197,8 +198,18 @@ class User extends Authenticatable
             }
         }
         if ($request->filled('categories')) {
-            foreach ($request->categories as $key => $category) {
-                $company->categories()->syncWithoutDetaching($category["id"]);
+            $categoryIds = collect($request->categories)
+                ->pluck('id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($categoryIds->isNotEmpty()) {
+                $serviceIds = Service::whereIn('category_id', $categoryIds)->pluck('id');
+
+                if ($serviceIds->isNotEmpty()) {
+                    $company->services()->syncWithoutDetaching($serviceIds->all());
+                }
             }
         }
         if ($request->filled('phone_2')) {

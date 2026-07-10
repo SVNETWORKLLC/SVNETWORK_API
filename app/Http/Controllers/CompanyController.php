@@ -186,7 +186,7 @@ class CompanyController extends Controller
             'phone' => $request->phone,
             'address_line1' => $request->address_line1,
             'city' => $request->city,
-            'state' => $request->state_id,
+            'state_id' => $request->state_id,
             'zip_code' => $request->zip_code,
             'is_claimed' => 1
         ]);
@@ -202,9 +202,7 @@ class CompanyController extends Controller
             }
         }
         if ($request->filled('categories')) {
-            foreach ($request->categories as $key => $category) {
-                $company->categories()->syncWithoutDetaching($category["id"]);
-            }
+            $this->syncServicesFromCategories($company, $request->categories);
         }
         if ($request->filled('phone_2')) {
             $company->phone_2 = $request->phone_2;
@@ -290,9 +288,7 @@ class CompanyController extends Controller
             }
         }
         if ($request->filled('categories')) {
-            foreach ($request->categories as $key => $category) {
-                $company->categories()->syncWithoutDetaching($category["id"]);
-            }
+            $this->syncServicesFromCategories($company, $request->categories);
         }
         if ($request->filled('phone_2')) {
             $company->phone_2 = $request->phone_2;
@@ -884,9 +880,7 @@ class CompanyController extends Controller
             }
         }
         if ($request->filled('categories')) {
-            foreach ($request->categories as $key => $category) {
-                $company->categories()->syncWithoutDetaching($category["id"]);
-            }
+            $this->syncServicesFromCategories($company, $request->categories);
         }
         if ($request->filled('phone_2')) {
             $company->phone_2 = $request->phone_2;
@@ -952,9 +946,7 @@ class CompanyController extends Controller
             }
         }
         if ($request->filled('categories')) {
-            foreach ($request->categories as $key => $category) {
-                $company->categories()->syncWithoutDetaching($category["id"]);
-            }
+            $this->syncServicesFromCategories($company, $request->categories);
         }
         if ($request->filled('phone_2')) {
             $company->phone_2 = $request->phone_2;
@@ -1228,6 +1220,25 @@ class CompanyController extends Controller
             ->get();
 
         return CompanyBasicResource::collection($companies);
+    }
+
+    private function syncServicesFromCategories(Company $company, $categories): void
+    {
+        $categoryIds = collect($categories)
+            ->pluck('id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($categoryIds->isEmpty()) {
+            return;
+        }
+
+        $serviceIds = Service::whereIn('category_id', $categoryIds)->pluck('id');
+
+        if ($serviceIds->isNotEmpty()) {
+            $company->services()->syncWithoutDetaching($serviceIds->all());
+        }
     }
 
     public function companyWelcomeNotification(Company $company) {}
